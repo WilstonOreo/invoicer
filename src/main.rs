@@ -1,21 +1,48 @@
 
-use std::io::Read;
+use std::{io::Read, fs::File};
 
 use serde::Deserialize;
+use std::io::Write;
 
 
 fn from_toml_file<T: serde::de::DeserializeOwned>(filename: &str)  -> Result<T, Box<dyn std::error::Error>> {
-    use std::fs::File;
-    let mut file = File::open(&filename)?;
+    let mut file = std::fs::File::open(&filename)?;
     let mut s = String::new();
     file.read_to_string(&mut s)?;
     
     Ok(toml::from_str(&s)?)
 }
 
+fn any_to_str(any: &dyn std::any::Any) -> Option<String> {
+    if let Some(opt_string) = any.downcast_ref::<Option<String>>() {
+        if let Some(as_string) = opt_string {
+            Some(as_string.clone())
+        } else {
+            None
+        }
+    } else if let Some(string) = any.downcast_ref::<String>() {
+        Some(string.clone())
+    } else if let Some(number) = any.downcast_ref::<u32>() {
+        Some(number.to_string())
+    } else {
+        None
+    }
+}
 
 
-#[derive(Debug, Deserialize)]
+
+fn generate_tex_command<'a>(mut w: &'a mut dyn Write, commandname: &str, content: &dyn std::any::Any) -> std::io::Result<()> {   
+    if let Some(string) = any_to_str(content) {
+        writeln!(&mut w, "\\newcommand{{\\{commandname}}}{{{string}}}")?;
+    } else {
+        writeln!(&mut w, "\\newcommand{{\\{commandname}}}{{}}")?;
+    }
+    Ok(())
+}
+
+use struct_iterable::Iterable;
+
+#[derive(Debug, Deserialize, Iterable)]
 struct Contact {
     fullname: String,
     street: String,
@@ -26,6 +53,16 @@ struct Contact {
     fax: Option<String>,
     email: String,
     website: Option<String>,
+}
+
+impl Contact {
+    fn generate_tex<'a>(&self, mut w: &'a mut dyn Write, prefix: &str) -> std::io::Result<()> {
+        for (field_name, field_value) in self.iter() {
+            generate_tex_command(w, format!("{prefix}{field_name}").as_str(), field_value)?;
+        }
+        
+        Ok(())
+    }
 }
 
 #[derive(Debug, Deserialize)]
@@ -122,10 +159,25 @@ impl Worklog {
         let mut buf_reader = BufReader::new(file);
         Self::from_csv(buf_reader)
     }
+}
 
 
+struct Invoice {
+    worklog: Worklog,
+    config: Config,
+    invoicee: Invoicee,
+}
 
+impl Invoice {
 
+    fn generate_invoice_tex(&self, w: impl std::io::Write) {
+
+    }
+
+    fn generate_worklog_tex(&self, filename: &str) {
+
+    }
+    
 }
 
 
@@ -153,5 +205,7 @@ fn main() {
     let config = Config::from_toml_file("invoicer.toml").unwrap();
     let invoicee = Invoicee::from_toml_file("examples/ExampleInvoicee.toml").unwrap();
 
+    let mut f = File::create("test.tex").unwrap();
 
+    config.contact.generate_tex(&mut f, "my").unwrap();
 }
