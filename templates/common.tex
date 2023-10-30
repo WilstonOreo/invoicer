@@ -1,0 +1,76 @@
+\newcommand{\sepdot}{\hspace{0.1cm}\textbullet\hspace{0.1cm}}
+
+\newcommand{\position}[4]{\stepcounter{positioncounter}\thepositioncounter & #1 & #2 & #3 & #4\\}
+
+\newcommand{\invoicesum}[4]{
+	\hline
+	\multicolumn{2}{l}{\textbf{\trsubtotal:}} & & & \textbf{#1} \\
+	& & & & \\
+	\multicolumn{2}{l}{\trvat:} & #2\% & & #3 \\
+	\hline
+	\multicolumn{2}{l}{\textbf{\trtotal:}} & & & \textbf{#4} \\
+}
+
+\newcommand{\invoicesumnotax}[1]{
+	\hline
+	\multicolumn{2}{l}{\textbf{\trtotal:}} & & & \textbf{#1} \\
+}
+
+\newcommand{\onelinepagefooter}{
+\cfoot{
+\begin{center}
+	\footnotesize{\myfullname\sepdot~\mystreet\sepdot~\myzipcode~\mycity\sepdot~Tel.:~\myphone~\sepdot~\myemail}
+\end{center}
+}
+}
+
+\newcommand{\twolinepagefooter}{
+\cfoot{
+\begin{center}
+	\footnotesize{\myfullname\sepdot~\mystreet\sepdot~\myzipcode~\mycity\sepdot~Tel.:~\myphone~\sepdot~\myemail\sepdot~IBAN:~\myiban~\sepdot~BIC:~\mybic~\sepdot~USt.-IdNr:~\mytaxid}
+\end{center}
+}
+}
+
+\newcommand\tab[1][1cm]{\hspace*{#1}}
+
+\newenvironment{positiontable}{
+	\newcounter{positioncounter}
+	\begin{longtable}{p{0.5cm}p{9cm}rrr}
+    \textbf{\#} & \textbf{\trname} & \textbf{\tramount} & \textbf{\trprice} & \textbf{\trnet} \\
+	\hline
+}
+{
+	\end{longtable}
+}
+
+\usepackage{geometry} % Required for adjusting page dimensions
+\usepackage{longtable}
+\geometry{
+	paper=a4paper, % Change to letterpaper for US letter
+	top=2.69cm, % Top margin
+	bottom=3.19cm, % Bottom margin
+	left=2.41cm, % Left margin
+	right=2.41cm, % Right margin
+	%showframe % Uncomment to show how the type block is set on the page
+}
+
+\usepackage[T1]{fontenc} % Output font encoding for international characters
+\usepackage[utf8]{inputenc} % Required for inputting international characters
+\usepackage[sfdefault]{ClearSans} %% option 'sfdefault' activates Clear Sans as the default text font
+\usepackage{microtype}
+\usepackage{hyperref}
+\usepackage{graphicx}
+\usepackage{multicol}
+\setlength{\columnsep}{0cm}
+
+\usepackage{fancyhdr}
+\pagestyle{fancy}
+\fancyhead{\flushright{\thepage}}
+
+\author{\myfullname}
+
+\renewcommand{\headrulewidth}{0pt}
+\renewcommand{\footrulewidth}{0pt}
+
+

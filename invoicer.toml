@@ -1,0 +1,17 @@
+workdir = "Work"
+
+[contact]
+fullname = "John Doe"
+street = "123 Fake St."
+zipcode = 1234
+city = "Berlin"
+country = "Germany"
+phone = "+49123456789"
+mail = ""
+
+[invoice]
+default_template = "invoice.tex"
+filename_format = "%INVOICENUMBER%_%DOCUMENTTYPE%_%CLIENT%"
+days_for_payment = 14
+calculate_value_tax = false
+

@@ -1,0 +1,90 @@
+\documentclass[onecolumn]{article} % 10pt font size default, 11pt and 12pt are also possible
+
+%$LANGUAGE
+\input{common}
+
+%$CLIENT_ADDRESS
+%$BILLING_ADDRESS
+%$PAYMENT_DETAILS
+
+%$INVOICE_DETAILS
+
+\onelinepagefooter
+
+\begin{document}
+
+\vspace{2cm}
+
+
+\begin{multicols}{3}
+\begin{flushleft}
+\clientfullname\\
+\clientcontact\\
+\clientstreet\\
+\clientzipcode~\clientcity\\
+\clientcountry\\
+\end{flushleft}
+
+
+\columnbreak
+\begin{flushleft}
+\vfill
+\end{flushleft}
+\vspace{2cm}
+
+\columnbreak
+\begin{flushleft}
+\vspace*{1cm}
+\myfullname\\
+\mystreet\\
+\myzipcode~\mycity\\
+\myphone\\
+\href{\mywebsite}{\mywebsite}\\
+\href{\myemail}{\myemail}\\
+\end{flushleft}
+
+\end{multicols}
+
+\begin{flushright}
+\textbf{Date:} \invoicedate\\
+\textbf{Invoice Number:} \invoicenumber\\
+\textbf{Time for payment:} 14 days\\
+\end{flushright}
+
+\begin{flushleft}
+\begin{LARGE}
+\trinvoice \invoicenumber\\
+\end{LARGE}
+
+\trperformanceperiod \invoiceperiodbegin~---~\invoiceperiodend
+
+\vspace{1.0cm}
+
+\trsalutationtext
+
+\begin{positiontable}
+%$INVOICE_POSITIONS
+%$INVOICE_SUM
+\end{positiontable}
+
+
+%$INVOICE_VALUE_TAX_NOTE
+
+\trpaymentrequesttext
+
+\begin{tabbing}
+\traccountholder: \= \textbf{\myfullname}\\
+IBAN: \> \textbf{\myiban}\\
+BIC: \> \textbf{\mybic}\\
+\end{tabbing}
+\vspace{0.25cm}
+
+\trclosing
+\break
+\break
+\myfullname
+
+\end{flushleft}
+
+
+\end{document}
