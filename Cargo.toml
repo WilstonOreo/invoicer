@@ -10,3 +10,5 @@ keywords = ["work","time","accounting","shell"]
 clap = { version = "4.1", features = ["derive","cargo"] }
 toml = "0.8.6"
 csv = "1.3.0"
+chrono = { version="^0.4.20", features = ["serde"] }
+serde = { version="1.0.190", features = ["derive","std"] }
