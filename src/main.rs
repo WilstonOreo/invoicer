@@ -1,5 +1,5 @@
 
-use std::{io::Read, fs::File};
+use std::{io::Read, fs::File, collections::HashMap};
 
 use serde::Deserialize;
 use std::io::Write;
@@ -29,8 +29,6 @@ fn any_to_str(any: &dyn std::any::Any) -> Option<String> {
     }
 }
 
-
-
 fn generate_tex_command<'a>(mut w: &'a mut dyn Write, commandname: &str, content: &dyn std::any::Any) -> std::io::Result<()> {   
     if let Some(string) = any_to_str(content) {
         writeln!(&mut w, "\\newcommand{{\\{commandname}}}{{{string}}}")?;
@@ -39,6 +37,17 @@ fn generate_tex_command<'a>(mut w: &'a mut dyn Write, commandname: &str, content
     }
     Ok(())
 }
+
+// The output is wrapped in a Result to allow matching on errors
+// Returns an Iterator to the Reader of the lines of the file.
+fn read_lines<P>(filename: P) -> std::io::Result<std::io::Lines<std::io::BufReader<File>>>
+where P: AsRef<std::path::Path>, {
+    let file = File::open(filename)?;
+    use std::io::BufRead;
+    Ok(std::io::BufReader::new(file).lines())
+}
+
+
 
 use struct_iterable::Iterable;
 
@@ -56,7 +65,7 @@ struct Contact {
 }
 
 impl Contact {
-    fn generate_tex<'a>(&self, mut w: &'a mut dyn Write, prefix: &str) -> std::io::Result<()> {
+    fn generate_tex<'a>(&self, w: &'a mut dyn Write, prefix: &str) -> std::io::Result<()> {
         for (field_name, field_value) in self.iter() {
             generate_tex_command(w, format!("{prefix}{field_name}").as_str(), field_value)?;
         }
@@ -170,12 +179,47 @@ struct Invoice {
 
 impl Invoice {
 
-    fn generate_invoice_tex(&self, w: impl std::io::Write) {
+    fn generate_invoice_tex<'a>(&self, w: &'a mut dyn Write) -> std::io::Result<()> {
+        let mut handlers = HashMap::new();
 
+        handlers.insert("LANGUAGE", |w: &mut dyn Write| -> std::io::Result<()> {
+            writeln!(w, "\\input{{{}}}", match &self.invoicee.language {
+                Some(language) => language.clone(),
+                None => "english".to_string()
+            })?;
+            Ok(())
+        });
+
+        
+
+        if let Ok(lines) = read_lines(format!("templates/{}", self.config.invoice.invoice_template)) {
+            // Consumes the iterator, returns an (Optional) String
+            for line in lines {
+                if let Ok(line) = line {
+                    writeln!(w, "{}", line)?;                    
+
+                    if let Some(line_template) =  Self::line_template_name(&line) {
+                        if let Some(handler) = handlers.get(line_template.as_str()) {
+                            handler(w)?;
+                        }
+                    }
+                }
+            }
+        }
+        Ok(())
     }
 
     fn generate_worklog_tex(&self, filename: &str) {
 
+    }
+
+    fn line_template_name(line: &String) -> Option<String> {
+        let l = line.clone().trim().to_string();
+        if l.starts_with("%$") {
+            Some(l.replace("%$", "").trim().to_string())
+        } else {
+            None
+        }
     }
     
 }
@@ -207,5 +251,13 @@ fn main() {
 
     let mut f = File::create("test.tex").unwrap();
 
-    config.contact.generate_tex(&mut f, "my").unwrap();
+    let invoice = Invoice {
+        worklog: worklog,
+        config: config,
+        invoicee: invoicee
+    };
+
+    invoice.generate_invoice_tex(&mut f);
+
+//    config.contact.generate_tex(&mut f, "my").unwrap();
 }
