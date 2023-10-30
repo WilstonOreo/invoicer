@@ -3,6 +3,18 @@ use std::io::Read;
 
 use serde::Deserialize;
 
+
+fn from_toml_file<T: serde::de::DeserializeOwned>(filename: &str)  -> Result<T, Box<dyn std::error::Error>> {
+    use std::fs::File;
+    let mut file = File::open(&filename)?;
+    let mut s = String::new();
+    file.read_to_string(&mut s)?;
+    
+    Ok(toml::from_str(&s)?)
+}
+
+
+
 #[derive(Debug, Deserialize)]
 struct Contact {
     fullname: String,
@@ -24,9 +36,26 @@ struct Payment {
     taxid: String,
 }
 
+
+#[derive(Debug, Deserialize)]
+struct Invoicee {
+    name: String,
+    language: Option<String>,
+    contact: Contact,
+}
+
+impl Invoicee {
+    fn from_toml_file(filename: &str) -> Result<Self, Box<dyn std::error::Error>> {
+        from_toml_file::<Self>(filename)
+    }
+}
+
+
+
 #[derive(Debug, Deserialize)]
 struct InvoiceConfig {
-    template: String,
+    invoice_template: String,
+    worklog_template: String,
     filename_format: String,
     days_for_payment: Option<u32>,
     calculate_value_added_tax: bool    
@@ -41,12 +70,7 @@ struct Config {
 
 impl Config {
     fn from_toml_file(filename: &str) -> Result<Self, Box<dyn std::error::Error>> {
-        use std::fs::File;
-        let mut file = File::open(&filename)?;
-        let mut s = String::new();
-        file.read_to_string(&mut s)?;
-        
-        Ok(toml::from_str(&s)?)
+        from_toml_file::<Self>(filename)
     }
 }
 
@@ -98,6 +122,10 @@ impl Worklog {
         let mut buf_reader = BufReader::new(file);
         Self::from_csv(buf_reader)
     }
+
+
+
+
 }
 
 
@@ -123,6 +151,7 @@ fn main() {
 
     let worklog = Worklog::from_csv_file("examples/ExampleWorklog.csv").unwrap();
     let config = Config::from_toml_file("invoicer.toml").unwrap();
+    let invoicee = Invoicee::from_toml_file("examples/ExampleInvoicee.toml").unwrap();
 
 
 }
