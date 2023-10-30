@@ -64,8 +64,8 @@ struct Contact {
     website: Option<String>,
 }
 
-impl Contact {
-    fn generate_tex<'a>(&self, w: &'a mut dyn Write, prefix: &str) -> std::io::Result<()> {
+trait GenerateTexCommands : Iterable {
+    fn generate_tex_commands<'a>(&self, w: &'a mut dyn Write, prefix: &str) -> std::io::Result<()> {
         for (field_name, field_value) in self.iter() {
             generate_tex_command(w, format!("{prefix}{field_name}").as_str(), field_value)?;
         }
@@ -74,13 +74,17 @@ impl Contact {
     }
 }
 
-#[derive(Debug, Deserialize)]
+impl GenerateTexCommands for Contact {}
+
+#[derive(Debug, Deserialize, Iterable)]
 struct Payment {
     account_holder: Option<String>,
     iban: String,
     bic: String,
     taxid: String,
 }
+
+impl GenerateTexCommands for Payment {}
 
 
 #[derive(Debug, Deserialize)]
@@ -89,6 +93,7 @@ struct Invoicee {
     language: Option<String>,
     contact: Contact,
 }
+
 
 impl Invoicee {
     fn from_toml_file(filename: &str) -> Result<Self, Box<dyn std::error::Error>> {
@@ -180,17 +185,28 @@ struct Invoice {
 impl Invoice {
 
     fn generate_invoice_tex<'a>(&self, w: &'a mut dyn Write) -> std::io::Result<()> {
-        let mut handlers = HashMap::new();
+        let mut handlers: HashMap<&str, Box<dyn Fn(&mut dyn Write) -> Result<(), std::io::Error>>> = HashMap::new();
 
-        handlers.insert("LANGUAGE", |w: &mut dyn Write| -> std::io::Result<()> {
+        handlers.insert("LANGUAGE", Box::new(|w: &mut dyn Write| -> std::io::Result<()> {
             writeln!(w, "\\input{{{}}}", match &self.invoicee.language {
                 Some(language) => language.clone(),
                 None => "english".to_string()
             })?;
             Ok(())
-        });
+        }));
 
-        
+        handlers.insert("INVOICEE_ADDRESS", Box::new(|w: &mut dyn Write| -> std::io::Result<()> {
+            self.invoicee.contact.generate_tex_commands(w, "invoicee")
+        }));
+
+        handlers.insert("BILLER_ADDRESS", Box::new(|w: &mut dyn Write| -> std::io::Result<()> {
+            self.config.contact.generate_tex_commands(w, "my")
+        }));
+
+        handlers.insert("PAYMENT_DETAILS", Box::new(|w: &mut dyn Write| -> std::io::Result<()> {
+            self.config.payment.generate_tex_commands(w, "my")
+        }));
+
 
         if let Ok(lines) = read_lines(format!("templates/{}", self.config.invoice.invoice_template)) {
             // Consumes the iterator, returns an (Optional) String
