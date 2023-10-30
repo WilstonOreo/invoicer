@@ -1,17 +1,22 @@
-workdir = "Work"
-
 [contact]
 fullname = "John Doe"
 street = "123 Fake St."
 zipcode = 1234
+email = "john@doe.com"
 city = "Berlin"
 country = "Germany"
 phone = "+49123456789"
 mail = ""
 
+[payment]
+account_holder = "John Doe"
+iban = "DE123456789012345678"
+bic = "MYBANKID"
+taxid = "12345678"
+
 [invoice]
-default_template = "invoice.tex"
+template = "invoice.tex"
 filename_format = "%INVOICENUMBER%_%DOCUMENTTYPE%_%CLIENT%"
 days_for_payment = 14
-calculate_value_tax = false
+calculate_value_added_tax = false
 

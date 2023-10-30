@@ -2,10 +2,11 @@ fullname = "Example Client"
 language = "english"
 
 [contact]
-name = "John Doe"
+fullname = "John Doe"
 street = "123 Fake St."
 zipcode = 1234
 city = "Berlin"
 country = "Germany"
 phone = "+49123456789"
 mail = "john.doe@exampleclient.com"
+

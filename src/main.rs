@@ -1,6 +1,9 @@
 
+use std::io::Read;
 
+use serde::Deserialize;
 
+#[derive(Debug, Deserialize)]
 struct Contact {
     fullname: String,
     street: String,
@@ -13,6 +16,7 @@ struct Contact {
     website: Option<String>,
 }
 
+#[derive(Debug, Deserialize)]
 struct Payment {
     account_holder: Option<String>,
     iban: String,
@@ -20,10 +24,36 @@ struct Payment {
     taxid: String,
 }
 
+#[derive(Debug, Deserialize)]
+struct InvoiceConfig {
+    template: String,
+    filename_format: String,
+    days_for_payment: Option<u32>,
+    calculate_value_added_tax: bool    
+}
+
+#[derive(Debug, Deserialize)]
+struct Config {
+    contact: Contact,
+    payment: Payment,
+    invoice: InvoiceConfig
+}
+
+impl Config {
+    fn from_toml_file(filename: &str) -> Result<Self, Box<dyn std::error::Error>> {
+        use std::fs::File;
+        let mut file = File::open(&filename)?;
+        let mut s = String::new();
+        file.read_to_string(&mut s)?;
+        
+        Ok(toml::from_str(&s)?)
+    }
+}
+
 
 type DateTime = chrono::DateTime<chrono::Utc>;
 
-#[derive(Debug, serde::Deserialize)]
+#[derive(Debug, Deserialize)]
 struct WorklogRecord {
     start: String,
     hours: f32,
@@ -92,6 +122,7 @@ fn main() {
     println!("Hello, world!");
 
     let worklog = Worklog::from_csv_file("examples/ExampleWorklog.csv").unwrap();
+    let config = Config::from_toml_file("invoicer.toml").unwrap();
 
 
 }
