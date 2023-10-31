@@ -1,5 +1,5 @@
 
-use std::{io::Read, fs::File, collections::HashMap};
+use std::{io::Read, fs::File, collections::HashMap, str::FromStr, ops::Add};
 
 use serde::Deserialize;
 use std::io::Write;
@@ -126,7 +126,7 @@ impl Config {
 }
 
 
-type DateTime = chrono::DateTime<chrono::Utc>;
+type DateTime = chrono::NaiveDateTime;
 
 #[derive(Debug, Deserialize)]
 struct WorklogRecord {
@@ -134,6 +134,23 @@ struct WorklogRecord {
     hours: f32,
     rate: f32,
     message: String
+}
+
+impl WorklogRecord {
+    fn start_date(&self) -> DateTime {
+        println!("{:?}", self.start);
+        DateTime::parse_from_str(&self.start, "%m/%d/%Y %H:%M").unwrap()
+    }
+
+    fn end_date(&self) -> DateTime {
+        let mut date = self.start_date();
+        date += chrono::Duration::seconds((60.0 * 60.0 * self.hours) as i64);
+        date
+    }
+
+    fn profit(&self) -> f32 {
+        self.hours * self.rate
+    }
 }
 
 struct Worklog {
@@ -146,8 +163,8 @@ impl Worklog {
 
     pub fn new() -> Self {
         Self {
-            start_date: DateTime::MAX_UTC,
-            end_date: DateTime::MIN_UTC,
+            start_date: DateTime::MAX,
+            end_date: DateTime::MIN,
             records: Vec::new()
         }
     }
@@ -160,7 +177,9 @@ impl Worklog {
             // Notice that we need to provide a type hint for automatic
             // deserialization.
             let record: WorklogRecord = result?;
-            println!("{:?}", record);
+            worklog.start_date = record.start_date().min(worklog.start_date);
+            worklog.end_date = record.end_date().max(worklog.end_date);
+            worklog.records.push(record);
         }
 
         Ok(worklog)
@@ -181,6 +200,18 @@ struct Invoice {
     config: Config,
     invoicee: Invoicee,
 }
+
+#[derive(Debug, Iterable)]
+struct InvoiceDetails {
+    date: String,
+    number: String,
+    periodbegin: String,
+    periodend: String,
+}
+
+impl GenerateTexCommands for InvoiceDetails {}
+
+
 
 impl Invoice {
 
@@ -259,11 +290,10 @@ struct Arguments{
 
 
 fn main() {
-    println!("Hello, world!");
-
     let worklog = Worklog::from_csv_file("examples/ExampleWorklog.csv").unwrap();
     let config = Config::from_toml_file("invoicer.toml").unwrap();
     let invoicee = Invoicee::from_toml_file("examples/ExampleInvoicee.toml").unwrap();
+    println!("Performance period: {:?} - {:?}", worklog.start_date, worklog.end_date);
 
     let mut f = File::create("test.tex").unwrap();
 
