@@ -15,7 +15,9 @@ lazy_static! {
     };
 }
 
+#[derive(Clone, Deserialize)]
 struct Currency(String);
+
 
 impl Currency {
     pub fn from_str(s: String) -> Currency {
@@ -33,10 +35,22 @@ impl Currency {
 
 impl From<String> for Currency {
     fn from(value: String) -> Self {
-        Self::from(value)
+        Self::from_str(value)
     }
 }
 
+impl Into<String> for Currency {
+    fn into(self) -> String {
+        self.str().clone()
+    }
+}
+
+
+impl std::fmt::Debug for Currency {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.write_str(&self.0)
+    }
+}
 
 
 fn from_toml_file<T: serde::de::DeserializeOwned>(filename: &str)  -> Result<T, Box<dyn std::error::Error>> {
@@ -136,14 +150,14 @@ struct Payment {
     iban: String,
     bic: String,
     taxid: String,
-    currency: Option<String>,
+    currency: Option<Currency>,
     taxrate: f32
 }
 
 impl Payment {
     pub fn currency(&self) -> String {
         match &self.currency {
-            Some(currency) => currency.clone(),
+            Some(currency) => currency.clone().into(),
             None => "EUR".to_string()
         }
     }
@@ -353,6 +367,7 @@ impl InvoicePosition {
 
 
 struct InvoicePositions {
+    currency: Currency,
     positions: BTreeMap<String, InvoicePosition>,
 }
 impl GenerateTex for InvoicePositions {
@@ -370,8 +385,9 @@ impl GenerateTex for InvoicePositions {
 
 }
 impl InvoicePositions {
-    fn from_worklog(worklog: &Worklog) -> Self {
+    fn from_worklog(worklog: &Worklog, currency: Currency) -> Self {
         let mut positions = InvoicePositions {
+            currency: currency, 
             positions: BTreeMap::new()
         };
 
@@ -466,7 +482,7 @@ impl GenerateTex for Invoice {
         }));
 
         handlers.insert("INVOICE_POSITIONS", Box::new(|w: &mut dyn Write| -> std::io::Result<()> {
-            let positions = InvoicePositions::from_worklog(&self.worklog);
+            let positions = InvoicePositions::from_worklog(&self.worklog, self.currency().into());
             positions.generate_tex(w)
         }));
 
@@ -488,6 +504,13 @@ impl GenerateTex for Invoice {
 
             Ok(())
         }));
+        handlers.insert("INVOICE_VALUE_TAX_NOTE", Box::new(|w: &mut dyn Write| -> std::io::Result<()> {
+            if !self.config.invoice.calculate_value_added_tax {
+                writeln!(w, "\\trinvoicevaluetaxnote")?;
+            }
+            Ok(())
+        }));
+
 
         if let Ok(lines) = read_lines(format!("templates/{}", self.config.invoice.template)) {
             // Consumes the iterator, returns an (Optional) String
@@ -544,6 +567,8 @@ fn main() {
         config: config,
         invoicee: invoicee
     };
+
+
 
     invoice.generate_tex(&mut f);
 
