@@ -15,6 +15,29 @@ lazy_static! {
     };
 }
 
+struct Currency(String);
+
+impl Currency {
+    pub fn from_str(s: String) -> Currency {
+        Self(s)
+    }
+
+    pub fn str(&self) -> &String {
+        &self.0
+    }
+    
+    pub fn symbol(&self) -> String {
+        CURRENCIES.get(self.0.as_str()).unwrap_or(&"€").to_string()
+    }
+}
+
+impl From<String> for Currency {
+    fn from(value: String) -> Self {
+        Self::from(value)
+    }
+}
+
+
 
 fn from_toml_file<T: serde::de::DeserializeOwned>(filename: &str)  -> Result<T, Box<dyn std::error::Error>> {
     let mut file = std::fs::File::open(&filename)?;
@@ -113,8 +136,21 @@ struct Payment {
     iban: String,
     bic: String,
     taxid: String,
-    currency: String,
+    currency: Option<String>,
     taxrate: f32
+}
+
+impl Payment {
+    pub fn currency(&self) -> String {
+        match &self.currency {
+            Some(currency) => currency.clone(),
+            None => "EUR".to_string()
+        }
+    }
+
+    pub fn currency_symbol(&self) -> String {
+        CURRENCIES.get(self.currency().as_str()).unwrap_or(&"€").to_string()
+    }
 }
 
 impl GenerateTexCommands for Payment {}
@@ -276,21 +312,26 @@ impl InvoiceDetails {
 impl GenerateTexCommands for InvoiceDetails {}
 
 
-#[derive(Clone, Copy)]
+#[derive(Clone)]
 struct InvoicePosition {
     amount: f32,
-    rate: f32
+    rate: f32,
+    unit: String 
 }
 
 impl Add for InvoicePosition {
     type Output = Self; 
 
     fn add(self, other: Self) -> Self {
+        //@todo: Handle case when adding two positions with different units
+
         let sum = self.amount + other.amount; 
         InvoicePosition { 
             amount: sum,
-            rate: (self.amount * self.rate + other.amount * other.rate) / sum  
+            rate: (self.amount * self.rate + other.amount * other.rate) / sum,
+            unit: self.unit
         }
+
     }
 }
 
@@ -300,6 +341,7 @@ impl InvoicePosition {
         Self {
             amount: w.hours,
             rate: w.rate,
+            unit: String::from("h")
         }
     }
 
@@ -317,7 +359,11 @@ impl GenerateTex for InvoicePositions {
 
     fn generate_tex<'a>(&self, w: &'a mut dyn Write) -> std::io::Result<()> {
         for (text, position) in &self.positions {
-            writeln!(w, "\\position{{{}}}{{{}}}{{{}}}{{{}}}", text, position.amount, position.rate, position.net())?;
+            writeln!(w, "\\position{{{text}}}{{{amount}{unit}}}{{{rate}}}{{{net}}}", 
+                amount = position.amount,
+                unit = position.unit,
+                rate = position.rate,
+                net = position.net())?;
         }
         Ok(())
     }
@@ -332,7 +378,7 @@ impl InvoicePositions {
         for record in &worklog.records {
             let text = record.message.clone();
             if positions.positions.contains_key(&text) {
-                positions.positions.insert(text, *positions.positions.get(&record.message).unwrap() + InvoicePosition::from_worklog_record(&record));
+                positions.positions.insert(text, positions.positions.get(&record.message).unwrap().clone() + InvoicePosition::from_worklog_record(&record));
             } else {
                 positions.positions.insert(text, InvoicePosition::from_worklog_record(&record));
             }
@@ -361,6 +407,31 @@ impl Invoice {
     fn end_date(&self) -> DateTime {
         self.worklog.end_date
     }
+
+    pub fn sum(&self) -> f32 {
+        self.worklog.sum()
+    }
+
+    pub fn sum_with_tax(&self) -> f32 {        
+        self.worklog.sum_with_tax(self.tax_rate())
+    }
+
+    pub fn tax(&self) -> f32 {
+        self.sum_with_tax() - self.sum() 
+    }
+
+    pub fn tax_rate(&self) -> f32 {
+        self.config.payment.taxrate
+    }
+
+    pub fn currency(&self) -> String {
+        self.config.payment.currency()
+    }
+
+    pub fn currency_symbol(&self) -> String {
+        self.config.payment.currency_symbol()
+    }
+
 }
 
 
@@ -399,6 +470,24 @@ impl GenerateTex for Invoice {
             positions.generate_tex(w)
         }));
 
+        handlers.insert("INVOICE_SUM", Box::new(|w: &mut dyn Write| -> std::io::Result<()> {
+            if self.config.invoice.calculate_value_added_tax {
+                writeln!(w, "\\invoicesum{{{sum}{currency}}}{{{tax_rate}}}{{{tax}}}{{{sum_with_tax}{currency}}}", 
+                    currency = self.currency_symbol(),
+                    sum = self.sum(), 
+                    tax_rate = self.tax_rate(), 
+                    tax = self.tax(), 
+                    sum_with_tax = self.sum_with_tax()
+                )?;
+            } else {
+                writeln!(w, "\\invoicesumnotax{{{sum}{currency}}}",
+                    currency = self.currency_symbol(),
+                    sum = self.sum(), 
+                )?;
+            }
+
+            Ok(())
+        }));
 
         if let Ok(lines) = read_lines(format!("templates/{}", self.config.invoice.template)) {
             // Consumes the iterator, returns an (Optional) String
