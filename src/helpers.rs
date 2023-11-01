@@ -33,3 +33,4 @@ where P: AsRef<std::path::Path>, {
     Ok(std::io::BufReader::new(file).lines())
 }
 
+pub type DateTime = chrono::NaiveDateTime;

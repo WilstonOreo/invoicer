@@ -1,11 +1,12 @@
 
-use std::{io::Read, fs::File, collections::{HashMap, BTreeMap}};
+use std::{fs::File, collections::{HashMap, BTreeMap}};
 
 use serde::Deserialize;
 use std::io::Write;
 use invoicer::locale::Currency;
 use invoicer::generate_tex::*;
-use invoicer::helpers::from_toml_file;
+use invoicer::helpers::{ from_toml_file, DateTime };
+use invoicer::worklog::{ Worklog, WorklogRecord };
 
 use struct_iterable::Iterable;
 
@@ -96,85 +97,7 @@ impl Config {
 }
 
 use std::ops::Add;
-type DateTime = chrono::NaiveDateTime;
 
-#[derive(Debug, Deserialize)]
-struct WorklogRecord {
-    start: String,
-    hours: f32,
-    rate: f32,
-    message: String
-}
-
-impl WorklogRecord {
-    fn begin_date(&self) -> DateTime {
-        DateTime::parse_from_str(&self.start, "%m/%d/%Y %H:%M").unwrap()
-    }
-
-    fn end_date(&self) -> DateTime {
-        let mut date = self.begin_date();
-        date += chrono::Duration::seconds((60.0 * 60.0 * self.hours) as i64);
-        date
-    }
-
-    fn net(&self) -> f32 {
-        self.hours * self.rate
-    }
-}
-
-
-struct Worklog {
-    begin_date: DateTime,
-    end_date: DateTime,
-    records: Vec<WorklogRecord>
-}
-
-impl Worklog {
-
-    pub fn new() -> Self {
-        Self {
-            begin_date: DateTime::MAX,
-            end_date: DateTime::MIN,
-            records: Vec::new()
-        }
-    }
-
-    pub fn from_csv(reader: impl std::io::Read) -> Result<Self, Box<dyn std::error::Error>> {
-        let mut rdr = csv::Reader::from_reader(reader);
-        let mut worklog = Self::new();
-        
-        for result in rdr.deserialize() {
-            // Notice that we need to provide a type hint for automatic
-            // deserialization.
-            let record: WorklogRecord = result?;
-            worklog.begin_date = record.begin_date().min(worklog.begin_date);
-            worklog.end_date = record.end_date().max(worklog.end_date);
-            worklog.records.push(record);
-        }
-
-        Ok(worklog)
-    }
-
-    pub fn from_csv_file(filename: &str)  -> Result<Self, Box<dyn std::error::Error>> {
-        use std::io::BufReader;
-        let file = File::open(&filename)?;
-        let mut buf_reader = BufReader::new(file);
-        Self::from_csv(buf_reader)
-    }
-
-    pub fn sum(&self) -> f32 {
-        let mut sum = 0.0_f32;
-        for record in &self.records {
-            sum += record.net();
-        }
-        sum
-    }
-
-    pub fn sum_with_tax(&self, taxrate: f32) -> f32 {
-        self.sum() * (1.0 + taxrate / 100.0)
-    }
-
-}
 
 
 struct Invoice {
@@ -271,7 +194,7 @@ impl InvoicePositions {
             positions: BTreeMap::new()
         };
 
-        for record in &worklog.records {
+        for record in worklog.records() {
             let text = record.message.clone();
             if positions.positions.contains_key(&text) {
                 positions.positions.insert(text, positions.positions.get(&record.message).unwrap().clone() + InvoicePosition::from_worklog_record(&record));
@@ -297,11 +220,11 @@ impl Invoice {
     }
     
     fn begin_date(&self) -> DateTime {
-        self.worklog.begin_date
+        self.worklog.begin_date()
     }
 
     fn end_date(&self) -> DateTime {
-        self.worklog.end_date
+        self.worklog.end_date()
     }
 
     pub fn sum(&self) -> f32 {
@@ -437,7 +360,7 @@ fn main() {
     let worklog = Worklog::from_csv_file("examples/ExampleWorklog.csv").unwrap();
     let config = Config::from_toml_file("invoicer.toml").unwrap();
     let invoicee = Invoicee::from_toml_file("examples/ExampleInvoicee.toml").unwrap();
-    println!("Performance period: {:?} - {:?}", worklog.begin_date, worklog.end_date);
+    println!("Performance period: {:?} - {:?}", worklog.begin_date(), worklog.end_date());
 
     let mut f = File::create("test.tex").unwrap();
 
