@@ -229,12 +229,13 @@ impl Invoice {
     fn generate_invoice_tex<'a>(&self, w: &'a mut dyn Write) -> std::io::Result<()> {
         let mut handlers: HashMap<&str, Box<dyn Fn(&mut dyn Write) -> Result<(), std::io::Error>>> = HashMap::new();
 
-        handlers.insert("LANGUAGE", Box::new(|w: &mut dyn Write| -> std::io::Result<()> {
-            writeln!(w, "\\input{{{}}}", match &self.invoicee.language {
-                Some(language) => language.clone(),
-                None => "english".to_string()
-            })?;
-            Ok(())
+        handlers.insert("LANGUAGE", Box::new(|w: &mut dyn Write| -> std::io::Result<()> {            
+            let language = match &self.invoicee.language {
+                Some(language) => language,
+                None => "english"
+            };
+
+            self.inline_input(language, w)
         }));
 
         handlers.insert("INVOICEE_ADDRESS", Box::new(|w: &mut dyn Write| -> std::io::Result<()> {
@@ -266,6 +267,11 @@ impl Invoice {
             // Consumes the iterator, returns an (Optional) String
             for line in lines {
                 if let Ok(line) = line {
+                    if line.starts_with("\\input{") {
+                        let filename = line.replace("\\input{", "").replace("}", "");
+                        self.inline_input(&filename, w)?;
+                        continue;
+                    }
                     writeln!(w, "{}", line)?;                    
 
                     if let Some(line_template) =  Self::line_template_name(&line) {
@@ -299,6 +305,21 @@ impl Invoice {
     fn end_date(&self) -> DateTime {
         self.worklog.end_date
     }
+
+    fn inline_input<'a>(&self, filename: &str, w: &'a mut dyn Write) -> std::io::Result<()> {
+        let filename = format!("templates/{}.tex", filename);
+        match read_lines(&filename) {
+            Ok(lines) => 
+                for line in lines {
+                    writeln!(w, "{}", line.unwrap())?;
+                }
+            Err(err) => {
+                eprintln!("Could not include {}: {}", filename, err);
+            }
+        }
+        
+        Ok(())
+    } 
 }
 
 
