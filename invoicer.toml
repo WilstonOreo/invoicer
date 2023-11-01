@@ -8,7 +8,7 @@ country = "Germany"
 phone = "+49123456789"
 
 [payment]
-account_holder = "John Doe"
+accountholder = "John Doe"
 iban = "DE123456789012345678"
 bic = "MYBANKID"
 taxid = "12345678"
