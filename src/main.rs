@@ -1,8 +1,19 @@
 
 use std::{io::Read, fs::File, collections::HashMap};
 
+use lazy_static::lazy_static;
 use serde::Deserialize;
 use std::io::Write;
+use common_macros::hash_map;
+
+lazy_static! {
+    static ref CURRENCIES: HashMap<&'static str, &'static str> = {
+        hash_map! {
+            "EUR" => "€",
+            "USD" => "$",
+        }
+    };
+}
 
 
 fn from_toml_file<T: serde::de::DeserializeOwned>(filename: &str)  -> Result<T, Box<dyn std::error::Error>> {
@@ -82,6 +93,8 @@ struct Payment {
     iban: String,
     bic: String,
     taxid: String,
+    currency: String,
+    taxrate: f32
 }
 
 impl GenerateTexCommands for Payment {}
@@ -192,12 +205,24 @@ impl Worklog {
     }
 
     pub fn from_csv_file(filename: &str)  -> Result<Self, Box<dyn std::error::Error>> {
-        use std::fs::File;
         use std::io::BufReader;
         let file = File::open(&filename)?;
         let mut buf_reader = BufReader::new(file);
         Self::from_csv(buf_reader)
     }
+
+    pub fn sum(&self) -> f32 {
+        let mut sum = 0.0_f32;
+        for record in &self.records {
+            sum += record.net();
+        }
+        sum
+    }
+
+    pub fn sum_with_tax(&self, taxrate: f32) -> f32 {
+        self.sum() * (1.0 + taxrate / 100.0)
+    }
+
 }
 
 
@@ -228,6 +253,15 @@ impl InvoiceDetails {
 }
 
 impl GenerateTexCommands for InvoiceDetails {}
+
+
+type InvoicePosition = WorklogRecord;
+
+struct InvoicePositions {
+    positions: Vec<InvoicePosition>,
+}
+
+
 
 
 
