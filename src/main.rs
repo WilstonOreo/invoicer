@@ -1,57 +1,9 @@
 
 use std::{io::Read, fs::File, collections::{HashMap, BTreeMap}};
 
-use lazy_static::lazy_static;
 use serde::Deserialize;
 use std::io::Write;
-use common_macros::hash_map;
-
-lazy_static! {
-    static ref CURRENCIES: HashMap<&'static str, &'static str> = {
-        hash_map! {
-            "EUR" => "€",
-            "USD" => "$",
-        }
-    };
-}
-
-#[derive(Clone, Deserialize)]
-struct Currency(String);
-
-
-impl Currency {
-    pub fn from_str(s: String) -> Currency {
-        Self(s)
-    }
-
-    pub fn str(&self) -> &String {
-        &self.0
-    }
-    
-    pub fn symbol(&self) -> String {
-        CURRENCIES.get(self.0.as_str()).unwrap_or(&"€").to_string()
-    }
-}
-
-impl From<String> for Currency {
-    fn from(value: String) -> Self {
-        Self::from_str(value)
-    }
-}
-
-impl Into<String> for Currency {
-    fn into(self) -> String {
-        self.str().clone()
-    }
-}
-
-
-impl std::fmt::Debug for Currency {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        f.write_str(&self.0)
-    }
-}
-
+use invoicer::locale::Currency;
 
 fn from_toml_file<T: serde::de::DeserializeOwned>(filename: &str)  -> Result<T, Box<dyn std::error::Error>> {
     let mut file = std::fs::File::open(&filename)?;
@@ -155,15 +107,15 @@ struct Payment {
 }
 
 impl Payment {
-    pub fn currency(&self) -> String {
+    pub fn currency(&self) -> Currency {
         match &self.currency {
-            Some(currency) => currency.clone().into(),
-            None => "EUR".to_string()
+            Some(currency) => currency.clone(),
+            None => "EUR".to_string().into()
         }
     }
 
     pub fn currency_symbol(&self) -> String {
-        CURRENCIES.get(self.currency().as_str()).unwrap_or(&"€").to_string()
+        self.currency().symbol()
     }
 }
 
@@ -440,7 +392,7 @@ impl Invoice {
         self.config.payment.taxrate
     }
 
-    pub fn currency(&self) -> String {
+    pub fn currency(&self) -> Currency {
         self.config.payment.currency()
     }
 
