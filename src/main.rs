@@ -33,7 +33,7 @@ fn generate_tex_command<'a>(mut w: &'a mut dyn Write, commandname: &str, content
     if let Some(string) = any_to_str(content) {
         writeln!(&mut w, "\\newcommand{{\\{commandname}}}{{{string}}}")?;
     } else {
-        writeln!(&mut w, "\\newcommand{{\\{commandname}}}{{}}")?;
+     //   writeln!(&mut w, "\\newcommand{{\\{commandname}}}{{ }}")?;
     }
     Ok(())
 }
@@ -78,7 +78,7 @@ impl GenerateTexCommands for Contact {}
 
 #[derive(Debug, Deserialize, Iterable)]
 struct Payment {
-    account_holder: Option<String>,
+    accountholder: Option<String>,
     iban: String,
     bic: String,
     taxid: String,
@@ -87,7 +87,7 @@ struct Payment {
 impl GenerateTexCommands for Payment {}
 
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize, Iterable)]
 struct Invoicee {
     name: String,
     language: Option<String>,
@@ -101,6 +101,13 @@ impl Invoicee {
     }
 }
 
+impl GenerateTexCommands for Invoicee {
+    fn generate_tex_commands<'a>(&self, w: &'a mut dyn Write, prefix: &str) -> std::io::Result<()> {
+        generate_tex_command(w, format!("{prefix}name").as_str(), &self.name)?;
+        self.contact.generate_tex_commands(w, prefix)?;
+        Ok(())
+    }
+}
 
 
 #[derive(Debug, Deserialize)]
@@ -239,7 +246,7 @@ impl Invoice {
         }));
 
         handlers.insert("INVOICEE_ADDRESS", Box::new(|w: &mut dyn Write| -> std::io::Result<()> {
-            self.invoicee.contact.generate_tex_commands(w, "invoicee")
+            self.invoicee.generate_tex_commands(w, "invoicee")
         }));
 
         handlers.insert("BILLER_ADDRESS", Box::new(|w: &mut dyn Write| -> std::io::Result<()> {
