@@ -54,19 +54,40 @@ impl std::fmt::Debug for Currency {
 
 #[derive(Debug, Deserialize, Iterable)]
 
-struct Locale {
+pub struct Locale {
     currency: Currency,
     decimalseparator: String,
     thousandseparator: String,
     translations: HashMap<String, String>
 }
 
-use crate::generate_tex::GenerateTexCommands;
+use crate::{generate_tex::{GenerateTex, generate_tex_command}, helpers::FromTomlFile};
 
-impl GenerateTexCommands for Locale {
-    fn generate_tex_commands<'a>(&self, w: &'a mut dyn std::io::Write, prefix: &str) -> std::io::Result<()> {
-        Ok(()) // TODO
+impl GenerateTex for Locale {
+    fn generate_tex<'a>(&self, w: &'a mut dyn std::io::Write) -> std::io::Result<()> {
+        for (name, translation) in &self.translations {
+            generate_tex_command(w, format!("tr{}", name).as_str(), translation)?;
+        }
+        Ok(())
     }
 }
 
+impl FromTomlFile for Locale {}
 
+#[cfg(test)]
+mod tests {
+    use crate::{helpers::FromTomlFile, generate_tex::GenerateTex};
+    use super::Locale;
+
+    #[test]
+    fn load_toml_and_generate_tex() {
+        let locale = Locale::from_toml_file("locales/en.toml");
+        assert!(locale.is_ok());
+
+        let locale = locale.unwrap();
+
+        assert!(!locale.translations.is_empty());
+        locale.generate_tex(&mut std::io::stdout()).unwrap();
+    }
+
+}
