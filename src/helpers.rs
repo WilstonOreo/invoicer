@@ -8,6 +8,16 @@ pub fn from_toml_file<T: serde::de::DeserializeOwned>(filename: &str)  -> Result
     Ok(toml::from_str(&s)?)
 }
 
+pub trait FromTomlFile: serde::de::DeserializeOwned {
+    fn from_toml_file(filename: &str)  -> Result<Self, Box<dyn std::error::Error>> {
+        let mut file = std::fs::File::open(&filename)?;
+        let mut s = String::new();
+        file.read_to_string(&mut s)?;
+        
+        Ok(toml::from_str(&s)?)    
+    } 
+}
+
 pub fn any_to_str(any: &dyn std::any::Any) -> Option<String> {
     if let Some(opt_string) = any.downcast_ref::<Option<String>>() {
         if let Some(as_string) = opt_string {

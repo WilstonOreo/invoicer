@@ -11,11 +11,11 @@ pub struct WorklogRecord {
 }
 
 impl WorklogRecord {
-    fn begin_date(&self) -> DateTime {
+    pub fn begin_date(&self) -> DateTime {
         DateTime::parse_from_str(&self.start, "%m/%d/%Y %H:%M").unwrap()
     }
 
-    fn end_date(&self) -> DateTime {
+    pub fn end_date(&self) -> DateTime {
         let mut date = self.begin_date();
         date += chrono::Duration::seconds((60.0 * 60.0 * self.hours) as i64);
         date
@@ -74,9 +74,6 @@ impl Worklog {
         sum
     }
 
-    pub fn sum_with_tax(&self, taxrate: f32) -> f32 {
-        self.sum() * (1.0 + taxrate / 100.0)
-    }
 
     pub fn records(&self) -> &Vec<WorklogRecord> {
         &self.records

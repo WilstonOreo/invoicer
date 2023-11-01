@@ -1,4 +1,5 @@
-pub mod helpers;
-pub mod locale;
 pub mod generate_tex;
+pub mod helpers;
+pub mod invoice;
+pub mod locale;
 pub mod worklog;
