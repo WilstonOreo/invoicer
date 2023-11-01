@@ -4,6 +4,7 @@ use lazy_static::lazy_static;
 
 use std::collections::HashMap;
 use serde::Deserialize;
+use struct_iterable::Iterable;
 
 lazy_static! {
     static ref CURRENCIES: HashMap<&'static str, &'static str> = {
@@ -50,4 +51,22 @@ impl std::fmt::Debug for Currency {
         f.write_str(&self.0)
     }
 }
+
+#[derive(Debug, Deserialize, Iterable)]
+
+struct Locale {
+    currency: Currency,
+    decimalseparator: String,
+    thousandseparator: String,
+    translations: HashMap<String, String>
+}
+
+use crate::generate_tex::GenerateTexCommands;
+
+impl GenerateTexCommands for Locale {
+    fn generate_tex_commands<'a>(&self, w: &'a mut dyn std::io::Write, prefix: &str) -> std::io::Result<()> {
+        Ok(()) // TODO
+    }
+}
+
 

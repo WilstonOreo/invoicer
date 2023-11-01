@@ -4,80 +4,8 @@ use std::{io::Read, fs::File, collections::{HashMap, BTreeMap}};
 use serde::Deserialize;
 use std::io::Write;
 use invoicer::locale::Currency;
-
-fn from_toml_file<T: serde::de::DeserializeOwned>(filename: &str)  -> Result<T, Box<dyn std::error::Error>> {
-    let mut file = std::fs::File::open(&filename)?;
-    let mut s = String::new();
-    file.read_to_string(&mut s)?;
-    
-    Ok(toml::from_str(&s)?)
-}
-
-fn any_to_str(any: &dyn std::any::Any) -> Option<String> {
-    if let Some(opt_string) = any.downcast_ref::<Option<String>>() {
-        if let Some(as_string) = opt_string {
-            Some(as_string.clone())
-        } else {
-            None
-        }
-    } else if let Some(string) = any.downcast_ref::<String>() {
-        Some(string.clone())
-    } else if let Some(number) = any.downcast_ref::<u32>() {
-        Some(number.to_string())
-    } else {
-        None
-    }
-}
-
-fn generate_tex_command<'a>(mut w: &'a mut dyn Write, commandname: &str, content: &dyn std::any::Any) -> std::io::Result<()> {   
-    if let Some(string) = any_to_str(content) {
-        writeln!(&mut w, "\\newcommand{{\\{commandname}}}{{{string}}}")?;
-    } else {
-     //   writeln!(&mut w, "\\newcommand{{\\{commandname}}}{{ }}")?;
-    }
-    Ok(())
-}
-
-trait GenerateTexCommands : Iterable {
-    fn generate_tex_commands<'a>(&self, w: &'a mut dyn Write, prefix: &str) -> std::io::Result<()> {
-        for (field_name, field_value) in self.iter() {
-            generate_tex_command(w, format!("{prefix}{field_name}").as_str(), field_value)?;
-        }
-        
-        Ok(())
-    }
-}
-
-trait GenerateTex {
-    fn generate_tex<'a>(&self, w: &'a mut dyn Write) -> std::io::Result<()>;
-
-    fn inline_input<'a>(&self, filename: &str, w: &'a mut dyn Write) -> std::io::Result<()> {
-        let filename = format!("templates/{}.tex", filename);
-        match read_lines(&filename) {
-            Ok(lines) => 
-                for line in lines {
-                    writeln!(w, "{}", line.unwrap())?;
-                }
-            Err(err) => {
-                eprintln!("Could not include {}: {}", filename, err);
-            }
-        }
-        
-        Ok(())
-    } 
-}
-
-
-// The output is wrapped in a Result to allow matching on errors
-// Returns an Iterator to the Reader of the lines of the file.
-fn read_lines<P>(filename: P) -> std::io::Result<std::io::Lines<std::io::BufReader<File>>>
-where P: AsRef<std::path::Path>, {
-    let file = File::open(filename)?;
-    use std::io::BufRead;
-    Ok(std::io::BufReader::new(file).lines())
-}
-
-
+use invoicer::generate_tex::*;
+use invoicer::helpers::from_toml_file;
 
 use struct_iterable::Iterable;
 
@@ -464,7 +392,7 @@ impl GenerateTex for Invoice {
         }));
 
 
-        if let Ok(lines) = read_lines(format!("templates/{}", self.config.invoice.template)) {
+        if let Ok(lines) = invoicer::helpers::read_lines(format!("templates/{}", self.config.invoice.template)) {
             // Consumes the iterator, returns an (Optional) String
             for line in lines {
                 if let Ok(line) = line {
