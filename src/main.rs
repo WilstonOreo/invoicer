@@ -1,5 +1,5 @@
 
-use std::{io::Read, fs::File, collections::HashMap};
+use std::{io::Read, fs::File, collections::{HashMap, BTreeMap}};
 
 use lazy_static::lazy_static;
 use serde::Deserialize;
@@ -49,6 +49,36 @@ fn generate_tex_command<'a>(mut w: &'a mut dyn Write, commandname: &str, content
     Ok(())
 }
 
+trait GenerateTexCommands : Iterable {
+    fn generate_tex_commands<'a>(&self, w: &'a mut dyn Write, prefix: &str) -> std::io::Result<()> {
+        for (field_name, field_value) in self.iter() {
+            generate_tex_command(w, format!("{prefix}{field_name}").as_str(), field_value)?;
+        }
+        
+        Ok(())
+    }
+}
+
+trait GenerateTex {
+    fn generate_tex<'a>(&self, w: &'a mut dyn Write) -> std::io::Result<()>;
+
+    fn inline_input<'a>(&self, filename: &str, w: &'a mut dyn Write) -> std::io::Result<()> {
+        let filename = format!("templates/{}.tex", filename);
+        match read_lines(&filename) {
+            Ok(lines) => 
+                for line in lines {
+                    writeln!(w, "{}", line.unwrap())?;
+                }
+            Err(err) => {
+                eprintln!("Could not include {}: {}", filename, err);
+            }
+        }
+        
+        Ok(())
+    } 
+}
+
+
 // The output is wrapped in a Result to allow matching on errors
 // Returns an Iterator to the Reader of the lines of the file.
 fn read_lines<P>(filename: P) -> std::io::Result<std::io::Lines<std::io::BufReader<File>>>
@@ -73,16 +103,6 @@ struct Contact {
     fax: Option<String>,
     email: String,
     website: Option<String>,
-}
-
-trait GenerateTexCommands : Iterable {
-    fn generate_tex_commands<'a>(&self, w: &'a mut dyn Write, prefix: &str) -> std::io::Result<()> {
-        for (field_name, field_value) in self.iter() {
-            generate_tex_command(w, format!("{prefix}{field_name}").as_str(), field_value)?;
-        }
-        
-        Ok(())
-    }
 }
 
 impl GenerateTexCommands for Contact {}
@@ -125,7 +145,7 @@ impl GenerateTexCommands for Invoicee {
 
 #[derive(Debug, Deserialize)]
 struct InvoiceConfig {
-    invoice_template: String,
+    template: String,
     worklog_template: String,
     filename_format: String,
     days_for_payment: Option<u32>,
@@ -145,7 +165,7 @@ impl Config {
     }
 }
 
-
+use std::ops::Add;
 type DateTime = chrono::NaiveDateTime;
 
 #[derive(Debug, Deserialize)]
@@ -171,6 +191,7 @@ impl WorklogRecord {
         self.hours * self.rate
     }
 }
+
 
 struct Worklog {
     begin_date: DateTime,
@@ -255,19 +276,96 @@ impl InvoiceDetails {
 impl GenerateTexCommands for InvoiceDetails {}
 
 
-type InvoicePosition = WorklogRecord;
+#[derive(Clone, Copy)]
+struct InvoicePosition {
+    amount: f32,
+    rate: f32
+}
 
-struct InvoicePositions {
-    positions: Vec<InvoicePosition>,
+impl Add for InvoicePosition {
+    type Output = Self; 
+
+    fn add(self, other: Self) -> Self {
+        let sum = self.amount + other.amount; 
+        InvoicePosition { 
+            amount: sum,
+            rate: (self.amount * self.rate + other.amount * other.rate) / sum  
+        }
+    }
+}
+
+
+impl InvoicePosition {
+    fn from_worklog_record(w: &WorklogRecord) -> Self {
+        Self {
+            amount: w.hours,
+            rate: w.rate,
+        }
+    }
+
+    fn net(&self) -> f32 {
+        self.amount * self.rate
+    }
 }
 
 
 
+struct InvoicePositions {
+    positions: BTreeMap<String, InvoicePosition>,
+}
+impl GenerateTex for InvoicePositions {
+
+    fn generate_tex<'a>(&self, w: &'a mut dyn Write) -> std::io::Result<()> {
+        for (text, position) in &self.positions {
+            writeln!(w, "\\position{{{}}}{{{}}}{{{}}}{{{}}}", text, position.amount, position.rate, position.net())?;
+        }
+        Ok(())
+    }
+
+}
+impl InvoicePositions {
+    fn from_worklog(worklog: &Worklog) -> Self {
+        let mut positions = InvoicePositions {
+            positions: BTreeMap::new()
+        };
+
+        for record in &worklog.records {
+            let text = record.message.clone();
+            if positions.positions.contains_key(&text) {
+                positions.positions.insert(text, *positions.positions.get(&record.message).unwrap() + InvoicePosition::from_worklog_record(&record));
+            } else {
+                positions.positions.insert(text, InvoicePosition::from_worklog_record(&record));
+            }
+        }
+
+        positions
+    }
+}
 
 
 impl Invoice {
 
-    fn generate_invoice_tex<'a>(&self, w: &'a mut dyn Write) -> std::io::Result<()> {
+    fn line_template_name(line: &String) -> Option<String> {
+        let l = line.clone().trim().to_string();
+        if l.starts_with("%$") {
+            Some(l.replace("%$", "").trim().to_string())
+        } else {
+            None
+        }
+    }
+    
+    fn begin_date(&self) -> DateTime {
+        self.worklog.begin_date
+    }
+
+    fn end_date(&self) -> DateTime {
+        self.worklog.end_date
+    }
+}
+
+
+impl GenerateTex for Invoice {
+    fn generate_tex<'a>(&self, w: &'a mut dyn Write) -> std::io::Result<()> {
         let mut handlers: HashMap<&str, Box<dyn Fn(&mut dyn Write) -> Result<(), std::io::Error>>> = HashMap::new();
 
         handlers.insert("LANGUAGE", Box::new(|w: &mut dyn Write| -> std::io::Result<()> {            
@@ -297,14 +395,12 @@ impl Invoice {
         }));
 
         handlers.insert("INVOICE_POSITIONS", Box::new(|w: &mut dyn Write| -> std::io::Result<()> {
-            for record in &self.worklog.records {
-                writeln!(w, "\\position{{{}}}{{{}}}{{{}}}{{{}}}", record.message, record.hours, record.rate, record.net())?;
-            }
-            Ok(())
+            let positions = InvoicePositions::from_worklog(&self.worklog);
+            positions.generate_tex(w)
         }));
 
 
-        if let Ok(lines) = read_lines(format!("templates/{}", self.config.invoice.invoice_template)) {
+        if let Ok(lines) = read_lines(format!("templates/{}", self.config.invoice.template)) {
             // Consumes the iterator, returns an (Optional) String
             for line in lines {
                 if let Ok(line) = line {
@@ -325,42 +421,6 @@ impl Invoice {
         }
         Ok(())
     }
-
-    fn generate_worklog_tex(&self, filename: &str) {
-
-    }
-
-    fn line_template_name(line: &String) -> Option<String> {
-        let l = line.clone().trim().to_string();
-        if l.starts_with("%$") {
-            Some(l.replace("%$", "").trim().to_string())
-        } else {
-            None
-        }
-    }
-    
-    fn begin_date(&self) -> DateTime {
-        self.worklog.begin_date
-    }
-
-    fn end_date(&self) -> DateTime {
-        self.worklog.end_date
-    }
-
-    fn inline_input<'a>(&self, filename: &str, w: &'a mut dyn Write) -> std::io::Result<()> {
-        let filename = format!("templates/{}.tex", filename);
-        match read_lines(&filename) {
-            Ok(lines) => 
-                for line in lines {
-                    writeln!(w, "{}", line.unwrap())?;
-                }
-            Err(err) => {
-                eprintln!("Could not include {}: {}", filename, err);
-            }
-        }
-        
-        Ok(())
-    } 
 }
 
 
@@ -396,7 +456,7 @@ fn main() {
         invoicee: invoicee
     };
 
-    invoice.generate_invoice_tex(&mut f);
+    invoice.generate_tex(&mut f);
 
 //    config.contact.generate_tex(&mut f, "my").unwrap();
 }
