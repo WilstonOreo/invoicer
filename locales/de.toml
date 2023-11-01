@@ -1,0 +1,37 @@
+currency = "EUR"
+decimalseparator = ","
+thousandseparator = "."
+
+[translations]
+subtotal = "Zwischensumme"
+vat = "Mehrwertsteuer"
+total = "Gesamtsumme"
+positionname = "Bezeichnung"
+amount = "Anzahl"
+price = "Preis"
+net = "Netto"
+date = "Datum"
+invoice = "Rechnung"
+invoicenumber = "Rechnungsnummer"
+timeforpayment = "Zahlungsziel"
+performanceperiod = "Leistungszeitraum"
+salutationtext = """
+    Sehr geehrte Damen und Herren,\\\\
+    \\vspace{0.5cm}
+    Vereinbarungsgemäß berechne ich für meine Leistungen wie folgt:
+    \\vspace{0.5cm}
+"""
+invoicevaluetaxnote = """
+    Es wird gemäß \\S 19 Abs. 1 Umsatzsteuergesetz keine Umsatzsteuer erhoben.\\\\
+"""
+
+paymentrequesttext = """
+    Zahlbar 14 Tage nach Erhalt per Überweisung unter Angabe der Rechnungsnummer als Verwendungszweck auf das folgende Konto:\\
+"""
+
+accountholder = "Kontoinhaber"
+closing = """
+    Ich bedanke mich für Ihren Auftrag und freue mich auf die weitere Zusammenarbeit.\\\\
+    \\vspace{1cm}
+    Mit freundlichen Grüßen
+"""
