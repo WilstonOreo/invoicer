@@ -1,3 +1,4 @@
+
 [contact]
 fullname = "John Doe"
 street = "123 Fake St."
@@ -12,9 +13,11 @@ accountholder = "John Doe"
 iban = "DE123456789012345678"
 bic = "MYBANKID"
 taxid = "12345678"
+currency = "EUR"
+taxrate = 19.0
 
 [invoice]
-invoice_template = "invoice.tex"
+template = "invoice.tex"
 worklog_template = "worklog.tex"
 filename_format = "%INVOICENUMBER%_%DOCUMENTTYPE%_%CLIENT%"
 days_for_payment = 14
