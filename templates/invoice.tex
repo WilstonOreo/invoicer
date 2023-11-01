@@ -18,8 +18,8 @@
 
 \begin{multicols}{3}
 \begin{flushleft}
+\invoiceename\\
 \invoiceefullname\\
-\invoiceecontact\\
 \invoiceestreet\\
 \invoiceezipcode~\invoiceecity\\
 \invoiceecountry\\
@@ -39,24 +39,28 @@
 \mystreet\\
 \myzipcode~\mycity\\
 \myphone\\
+
+\ifx\mywebsite\undefined
+\else
 \href{\mywebsite}{\mywebsite}\\
+\fi
 \href{\myemail}{\myemail}\\
 \end{flushleft}
 
 \end{multicols}
 
 \begin{flushright}
-\textbf{Date:} \invoicedate\\
-\textbf{Invoice Number:} \invoicenumber\\
+\textbf{Date:}~\invoicedate\\
+\textbf{Invoice Number:}~\invoicenumber\\
 \textbf{Time for payment:} 14 days\\
 \end{flushright}
 
 \begin{flushleft}
 \begin{LARGE}
-\trinvoice \invoicenumber\\
+\trinvoice~\invoicenumber\\
 \end{LARGE}
 
-\trperformanceperiod \invoiceperiodbegin~---~\invoiceperiodend
+\trperformanceperiod~\invoiceperiodbegin~---~\invoiceperiodend
 
 \vspace{1.0cm}
 
