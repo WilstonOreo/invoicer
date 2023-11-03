@@ -132,17 +132,37 @@ impl FromTomlFile for Locale {
     }
 }
 
+impl From<String> for Locale {
+    fn from(value: String) -> Self {
+        From::from(value.as_str())
+    }
+}
+
+
+impl From<&str> for Locale {
+    fn from(value: &str) -> Self {
+        Self::from_toml_file(format!("locales/{value}.toml").as_str())
+            .unwrap_or_else(
+                |e| { 
+                    let default = Locale::default();
+                    eprintln!("Could not load toml for locale '{value}', using default locale '{def}'. {e}", def = default.name);  
+                    default
+                })
+    }
+}
+
+
 #[cfg(test)]
 mod tests {
-    use crate::{helpers::FromTomlFile, generate_tex::GenerateTex};
+    use crate::{helpers::FromTomlFile, generate_tex::GenerateTex, locale};
     use super::Locale;
 
     #[test]
     fn load_toml_and_generate_tex() {
         let locale = Locale::from_toml_file("locales/en.toml");
         assert!(locale.is_ok());
+        
         let locale = locale.unwrap();
-
         assert_eq!(locale.name, "en");
 
         assert!(!locale.translations.is_empty());
@@ -151,7 +171,7 @@ mod tests {
 
     #[test]
     fn format() {
-        let locale = Locale::from_toml_file("locales/en.toml").unwrap();
+        let locale = Locale::from("en");
 
         assert_eq!(locale.format_amount(1234.943_f32), "1,234.94€");
         assert_eq!(locale.format_amount(1234.00_f32), "1,234.00€");
