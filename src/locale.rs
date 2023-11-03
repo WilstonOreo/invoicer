@@ -1,8 +1,9 @@
 
 use common_macros::hash_map;
 use lazy_static::lazy_static;
+use std::{io::Read, fs::File};
 
-use std::collections::HashMap;
+use std::{collections::HashMap};
 use serde::Deserialize;
 use struct_iterable::Iterable;
 
@@ -52,14 +53,60 @@ impl std::fmt::Debug for Currency {
     }
 }
 
+impl Default for Currency {
+    fn default() -> Self {
+        Self("EUR".to_string())
+    }
+}
+
+
 #[derive(Debug, Deserialize, Iterable)]
 
 pub struct Locale {
+    #[serde(skip)] 
+    name: String,
+    decimal: String,
+    separator: String,
+    pattern: String,
     currency: Currency,
-    decimalseparator: String,
-    thousandseparator: String,
     translations: HashMap<String, String>
 }
+
+impl Default for Locale {
+    fn default() -> Self {
+        Self {
+            name: "en".to_string(),
+            decimal: ".".to_string(),
+            separator: ",".to_string(),
+            pattern: "#!".to_string(),
+            currency: Currency::default(),
+            translations: HashMap::new()
+        }
+    }
+}
+
+impl Locale {
+    pub fn format_number<T: std::fmt::Display>(&self, number: T, precision: usize) -> String {
+        let s = format!("{number:.precision$}")
+            .replace(".", &self.decimal);
+        
+        let mut fs = String::new();
+        for (i, c) in s.chars().rev().enumerate() {
+            if i % 3 == 0 && (i > 2 + self.decimal.len()) {
+                fs = self.separator.clone() + &fs;
+            }
+            fs = c.to_string() + &fs;
+        }
+        fs
+    }
+
+    pub fn format_amount<T: std::fmt::Display>(&self, number: T) -> String {
+        self.pattern
+            .replace('#', self.format_number(number, 2).as_str())
+            .replace('!', self.currency.symbol().as_str())
+    }
+}
+
 
 use crate::{generate_tex::{GenerateTex, generate_tex_command}, helpers::FromTomlFile};
 
@@ -72,7 +119,18 @@ impl GenerateTex for Locale {
     }
 }
 
-impl FromTomlFile for Locale {}
+impl FromTomlFile for Locale {
+    fn from_toml_file(filename: &str)  -> Result<Self, Box<dyn std::error::Error>> {
+        let mut file = std::fs::File::open(&filename)?;
+        let mut s = String::new();
+        file.read_to_string(&mut s)?;
+
+        let mut locale: Locale = toml::from_str(&s)?;
+        locale.name = std::path::Path::new(&filename).file_stem().unwrap().to_str().unwrap().to_string();
+
+        Ok(locale)
+    }
+}
 
 #[cfg(test)]
 mod tests {
@@ -83,11 +141,20 @@ mod tests {
     fn load_toml_and_generate_tex() {
         let locale = Locale::from_toml_file("locales/en.toml");
         assert!(locale.is_ok());
-
         let locale = locale.unwrap();
 
+        assert_eq!(locale.name, "en");
+
         assert!(!locale.translations.is_empty());
-        locale.generate_tex(&mut std::io::stdout()).unwrap();
+        assert!(locale.generate_tex(&mut std::io::sink()).is_ok());
     }
 
+    #[test]
+    fn format() {
+        let locale = Locale::from_toml_file("locales/en.toml").unwrap();
+
+        assert_eq!(locale.format_amount(1234.943_f32), "1,234.94€");
+        assert_eq!(locale.format_amount(1234.00_f32), "1,234.00€");
+        assert_eq!(locale.format_amount(1234_i32), "1234€"); // TODO: Handle int types differently?
+    }
 }

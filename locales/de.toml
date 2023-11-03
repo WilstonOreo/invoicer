@@ -1,6 +1,7 @@
 currency = "EUR"
-decimalseparator = ","
-thousandseparator = "."
+decimal = ","
+separator = "."
+pattern = "#!"
 
 [translations]
 subtotal = "Zwischensumme"
