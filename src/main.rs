@@ -28,6 +28,8 @@ fn main() {
     let mut f = std::fs::File::create("test.tex").unwrap();
 
     let mut invoice = Invoice::new(chrono::offset::Local::now().naive_local(), config, invoicee);
+    // Set counter
+    // invoice.set_counter()
     invoice.add_worklog(&worklog);
 
     use invoicer::generate_tex::GenerateTex;

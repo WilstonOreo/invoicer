@@ -1,9 +1,9 @@
 
 use common_macros::hash_map;
 use lazy_static::lazy_static;
-use std::{io::Read, fs::File};
+use std::io::Read;
 
-use std::{collections::HashMap};
+use std::collections::HashMap;
 use serde::Deserialize;
 use struct_iterable::Iterable;
 
@@ -90,6 +90,10 @@ impl Locale {
         &self.name
     }
 
+    pub fn currency(&self) -> &Currency {
+        &self.currency
+    }
+
     pub fn format_number<T: std::fmt::Display>(&self, number: T, precision: usize) -> String {
         let s = format!("{number:.precision$}")
             .replace(".", &self.decimal);
@@ -168,7 +172,7 @@ impl From<&str> for Locale {
 
 #[cfg(test)]
 mod tests {
-    use crate::{helpers::FromTomlFile, generate_tex::GenerateTex, locale};
+    use crate::{helpers::FromTomlFile, generate_tex::GenerateTex};
     use super::Locale;
 
     #[test]

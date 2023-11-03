@@ -1,5 +1,5 @@
 name = "Example Client"
-language = "english"
+locale = "de"
 
 [contact]
 fullname = "Jane Doe"

@@ -2,7 +2,7 @@ use serde::{Deserialize, Deserializer};
 use std::io::Write;
 use crate::locale::{Currency, Locale};
 use crate::generate_tex::*;
-use crate::helpers::{ from_toml_file, DateTime, FromTomlFile };
+use crate::helpers::{ from_toml_file, DateTime, date_to_str, FromTomlFile };
 use crate::worklog::{ Worklog, WorklogRecord };
 
 use std::collections::{HashMap, BTreeMap};
@@ -48,6 +48,7 @@ impl Payment {
 }
 
 impl GenerateTexCommands for Payment {}
+
 
 
 #[derive(Debug, Deserialize, Iterable)]
@@ -111,6 +112,7 @@ use std::ops::Add;
 pub struct Invoice {
     date: DateTime,
     config: Config,
+    counter: u32,
     invoicee: Invoicee,
     positions: Vec<InvoicePosition>,
     begin_date: DateTime,
@@ -122,6 +124,7 @@ impl Invoice {
         Invoice {
             date: date,
             config: config,
+            counter: 0,
             invoicee: invoicee,
             positions: Vec::new(),
             begin_date: DateTime::MAX,
@@ -168,13 +171,14 @@ pub struct InvoiceDetails {
 }
 
 impl InvoiceDetails {
+
     pub fn from_invoice(invoice: &Invoice) -> Self {
         Self {
-            date: invoice.date.to_string(),
-            number: invoice.date.to_string(),
-            periodbegin: invoice.begin_date().to_string(),
-            periodend: invoice.end_date().to_string()
-        }
+            date: date_to_str(invoice.date),
+            number: invoice.number(),
+            periodbegin: date_to_str(invoice.begin_date()),
+            periodend: date_to_str(invoice.end_date()),
+        } 
     }
 }
 
@@ -220,51 +224,24 @@ impl InvoicePosition {
     fn net(&self) -> f32 {
         self.amount * self.rate
     }
-}
 
-impl GenerateTex for InvoicePosition {
-    fn generate_tex<'a>(&self, w: &'a mut dyn Write) -> std::io::Result<()> {
+    fn generate_tex<'a>(&self, w: &'a mut dyn Write, l: Locale) -> std::io::Result<()> {
         writeln!(w, "\\position{{{text}}}{{{amount}{unit}}}{{{rate}}}{{{net}}}", 
             text = self.text,
-            amount = self.amount,
+            amount = l.format_number(self.amount, 2),
             unit = self.unit,
-            rate = self.rate,
-            net = self.net())
+            rate = format!("{rate}{currency}/{unit}", rate = self.rate, currency = l.currency().symbol(), unit = self.unit),
+            net = l.format_amount(self.net()))
     }
 }
 
 
-
-
-
-
-pub struct InvoicePositions {
-    currency: Currency,
-    positions: BTreeMap<String, InvoicePosition>,
-}
-
-impl InvoicePositions {
-    fn from_worklog(worklog: &Worklog, currency: Currency) -> Self {
-        let mut positions = InvoicePositions {
-            currency: currency, 
-            positions: BTreeMap::new()
-        };
-
-        for record in worklog.records() {
-            let text = record.message.clone();
-            if positions.positions.contains_key(&text) {
-                positions.positions.insert(text, positions.positions.get(&record.message).unwrap().clone() + InvoicePosition::from_worklog_record(&record));
-            } else {
-                positions.positions.insert(text, InvoicePosition::from_worklog_record(&record));
-            }
-        }
-
-        positions
-    }
-}
 
 
 impl Invoice {
+    pub fn number(&self) -> String {
+        format!("{}{:02}", self.date.format("%Y%m").to_string(), self.counter)
+    }
 
     fn line_template_name(line: &String) -> Option<String> {
         let l = line.clone().trim().to_string();
@@ -341,24 +318,24 @@ impl GenerateTex for Invoice {
 
         handlers.insert("INVOICE_POSITIONS", Box::new(|w: &mut dyn Write| -> std::io::Result<()> {
             for position in &self.positions {
-                position.generate_tex(w)?;
+                position.generate_tex(w, self.locale())?;
             }
             Ok(())
         }));
 
         handlers.insert("INVOICE_SUM", Box::new(|w: &mut dyn Write| -> std::io::Result<()> {
+            let l = self.locale();
+            
             if self.config.invoice.calculate_value_added_tax {
-                writeln!(w, "\\invoicesum{{{sum}{currency}}}{{{tax_rate}}}{{{tax}}}{{{sum_with_tax}{currency}}}", 
-                    currency = self.currency_symbol(),
-                    sum = self.sum(), 
+                writeln!(w, "\\invoicesum{{{sum}}}{{{tax_rate}}}{{{tax}}}{{{sum_with_tax}}}", 
+                    sum = l.format_amount(self.sum()), 
                     tax_rate = self.tax_rate(), 
-                    tax = self.tax(), 
-                    sum_with_tax = self.sum_with_tax()
+                    tax = l.format_amount(self.tax()), 
+                    sum_with_tax = l.format_amount(self.sum_with_tax()) 
                 )?;
             } else {
-                writeln!(w, "\\invoicesumnotax{{{sum}{currency}}}",
-                    currency = self.currency_symbol(),
-                    sum = self.sum(), 
+                writeln!(w, "\\invoicesumnotax{{{sum}}}",
+                    sum = l.format_amount(self.sum()), 
                 )?;
             }
 

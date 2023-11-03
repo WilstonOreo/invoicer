@@ -44,3 +44,7 @@ where P: AsRef<std::path::Path>, {
 }
 
 pub type DateTime = chrono::NaiveDateTime;
+
+pub fn date_to_str(d: DateTime) -> String {
+    d.format("%Y/%m/%d").to_string()
+}

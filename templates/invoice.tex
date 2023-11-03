@@ -51,9 +51,11 @@
 \end{multicols}
 
 \begin{flushright}
-\textbf{Date:}~\invoicedate\\
-\textbf{Invoice Number:}~\invoicenumber\\
-\textbf{Time for payment:} 14 days\\
+	\begin{longtable}{p{10cm}lr}
+		\hfill & \textbf{Date:} & \invoicedate\\
+		\hfill & \textbf{Invoice Number:} & \invoicenumber\\
+		\hfill & \textbf{Time for payment:} & 14 days\\
+	\end{longtable}
 \end{flushright}
 
 \begin{flushleft}
@@ -77,11 +79,11 @@
 
 \trpaymentrequesttext
 
-\begin{tabbing}
-\traccountholder: \= \textbf{\myfullname}\\
-IBAN: \> \textbf{\myiban}\\
-BIC: \> \textbf{\mybic}\\
-\end{tabbing}
+\begin{longtable}{p{5cm}l}
+\traccountholder: & \textbf{\myfullname} \\
+IBAN: & \textbf{\myiban} \\
+BIC: & \textbf{\mybic} \\
+\end{longtable}
 \vspace{0.25cm}
 
 \trclosing
