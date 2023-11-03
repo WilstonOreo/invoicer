@@ -60,7 +60,7 @@ impl Default for Currency {
 }
 
 
-#[derive(Debug, Deserialize, Iterable)]
+#[derive(Debug, Clone, Deserialize, Iterable)]
 
 pub struct Locale {
     #[serde(skip)] 
@@ -86,6 +86,10 @@ impl Default for Locale {
 }
 
 impl Locale {
+    pub fn name(&self) -> &String {
+        &self.name
+    }
+
     pub fn format_number<T: std::fmt::Display>(&self, number: T, precision: usize) -> String {
         let s = format!("{number:.precision$}")
             .replace(".", &self.decimal);
@@ -138,6 +142,16 @@ impl From<String> for Locale {
     }
 }
 
+impl std::str::FromStr for Locale {
+    type Err = Box<dyn std::error::Error>;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        match Self::from_toml_file(format!("locales/{s}.toml").as_str()) {
+            Ok(s) => Ok(s),
+            Err(e) => Err(e)
+        }
+    }
+}
 
 impl From<&str> for Locale {
     fn from(value: &str) -> Self {

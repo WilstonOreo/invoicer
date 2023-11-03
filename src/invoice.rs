@@ -1,6 +1,6 @@
-use serde::Deserialize;
+use serde::{Deserialize, Deserializer};
 use std::io::Write;
-use crate::locale::Currency;
+use crate::locale::{Currency, Locale};
 use crate::generate_tex::*;
 use crate::helpers::{ from_toml_file, DateTime, FromTomlFile };
 use crate::worklog::{ Worklog, WorklogRecord };
@@ -53,9 +53,22 @@ impl GenerateTexCommands for Payment {}
 #[derive(Debug, Deserialize, Iterable)]
 pub struct Invoicee {
     name: String,
-    language: Option<String>,
+    #[serde(deserialize_with = "locale_from_str")]
+    locale: Option<Locale>,
     contact: Contact,
 }
+
+fn locale_from_str<'de, D>(deserializer: D) -> Result<Option<Locale>, D::Error>
+where D: Deserializer<'de> {
+    let buf = String::deserialize(deserializer)?;
+
+    use std::str::FromStr;
+    let s = Locale::from_str(&buf).unwrap();
+    println!("{}", s.name());
+    Ok(Some(s))
+}
+
+
 
 impl FromTomlFile for Invoicee {}
 
@@ -114,6 +127,10 @@ impl Invoice {
             begin_date: DateTime::MAX,
             end_date: DateTime::MIN,
         }
+    }
+
+    pub fn locale(&self) -> Locale {
+        self.invoicee.locale.clone().unwrap_or_default()
     }
     
     pub fn add_position(&mut self, position: InvoicePosition) {
@@ -302,12 +319,7 @@ impl GenerateTex for Invoice {
         let mut handlers: HashMap<&str, Box<dyn Fn(&mut dyn Write) -> Result<(), std::io::Error>>> = HashMap::new();
 
         handlers.insert("LANGUAGE", Box::new(|w: &mut dyn Write| -> std::io::Result<()> {            
-            let language = match &self.invoicee.language {
-                Some(language) => language,
-                None => "english"
-            };
-
-            self.inline_input(language, w)
+            self.locale().generate_tex(w)
         }));
 
         handlers.insert("INVOICEE_ADDRESS", Box::new(|w: &mut dyn Write| -> std::io::Result<()> {
