@@ -4,36 +4,45 @@ use invoicer::worklog::Worklog;
 
 use clap::Parser;
 
-
 #[derive(Parser, Debug)]
 #[command(author="Michael Winkelmann", version, about="Invoicer")]
 struct Arguments{
-    #[arg(long, default_value_t = String::new())]
-    worklog_csv: String,
-    #[arg(long, default_value_t = String::new())]
-    invoicee_toml: String,
-    #[arg(short, long, default_value_t = String::from("invoicer.toml"))]
-    config: String,
+    #[arg(long)]
+    worklog: Option<Vec<String>>,
+    #[arg(short, long)]
+    invoicee_toml: Option<String>,
+    #[arg(long)]
+    invoice_output: Option<String>,
+    #[arg(short, long)]
+    config: Option<String>,
 }
 
 
 
-fn main() {
-    let worklog = Worklog::from_csv_file("examples/ExampleWorklog.csv").unwrap();
-    let config = Config::from_toml_file("invoicer.toml").unwrap();
-    use invoicer::helpers::FromTomlFile;
-    let invoicee = Invoicee::from_toml_file("examples/ExampleInvoicee.toml").unwrap();
-    println!("Performance period: {:?} - {:?}", worklog.begin_date(), worklog.end_date());
+fn main() -> Result<(), Box<dyn std::error::Error>> {
+    let args = Arguments::parse();
 
-    let mut f = std::fs::File::create("test.tex").unwrap();
+    if args.invoicee_toml.is_none() {
+        return Err(Box::new(std::io::Error::new(std::io::ErrorKind::InvalidInput, "No invoicee given!")));
+    }
+
+    use invoicer::helpers::FromTomlFile;
+    let config = Config::from_toml_file(args.config.unwrap_or("invoicer.toml".to_string()).as_str())?;
+    let invoicee = Invoicee::from_toml_file(&args.invoicee_toml.unwrap())?;
 
     let mut invoice = Invoice::new(chrono::offset::Local::now().naive_local(), config, invoicee);
-    // Set counter
-    // invoice.set_counter()
-    invoice.add_worklog(&worklog);
+
+    let worklogs = args.worklog.unwrap_or_default();
+
+    for worklog in worklogs {
+        match Worklog::from_csv_file(&worklog) {
+            Ok(worklog) => invoice.add_worklog(&worklog),
+            Err(e) => eprintln!("Error loading worklog {worklog}: {e}")
+        }
+    }
 
     use invoicer::generate_tex::GenerateTex;
-    invoice.generate_tex(&mut f);
+    invoice.generate_tex_file(args.invoice_output.unwrap_or(invoice.filename()))?;
 
-//    config.contact.generate_tex(&mut f, "my").unwrap();
+    Ok(())
 }
