@@ -5,7 +5,7 @@ use crate::helpers::DateTime;
 #[derive(Debug, Deserialize)]
 pub struct WorklogRecord {
     #[serde(rename = "Tags")]
-    pub tags: Option<Vec<String>>,
+    pub tags: Option<String>,
     #[serde(rename = "Start")]
     pub start: String,
     #[serde(rename = "Hours")]
@@ -61,7 +61,6 @@ impl Worklog {
 
     pub fn from_csv(reader: impl std::io::Read) -> Result<Self, Box<dyn std::error::Error>> {
         let mut rdr = csv::ReaderBuilder::new()
-         //   .terminator(csv::Terminator::Any(b'\n'))
             .from_reader(reader);
         let mut worklog = Self::new();
         
