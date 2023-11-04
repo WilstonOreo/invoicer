@@ -36,3 +36,6 @@ closing = """
     \\vspace{1cm}
     Mit freundlichen Grüßen
 """
+
+timesheet = "Stundenzettel"
+

@@ -36,3 +36,5 @@ closing = """
     \\vspace{1cm}
     Best regards
 """
+
+timesheet = "Time sheet"
