@@ -54,7 +54,7 @@ impl GenerateTexCommands for Payment {}
 #[derive(Debug, Deserialize, Iterable)]
 pub struct Invoicee {
     #[serde(skip)]
-    name: Option<String>,
+    name: String,
     companyname: Option<String>,
     #[serde(deserialize_with = "locale_from_str")]
     locale: Option<Locale>,
@@ -67,13 +67,20 @@ where D: Deserializer<'de> {
 
     use std::str::FromStr;
     let s = Locale::from_str(&buf).unwrap();
-    println!("{}", s.name());
     Ok(Some(s))
 }
 
 
 
-impl FromTomlFile for Invoicee {}
+
+impl FromTomlFile for Invoicee {
+    fn from_toml_file(filename: &str)  -> Result<Self, Box<dyn std::error::Error>> {
+        let mut invoicee: Invoicee = crate::helpers::from_toml_file(filename)?;
+        invoicee.name = crate::helpers::name_from_file(&filename);
+
+        Ok(invoicee)
+    }
+}
 
 
 impl GenerateTexCommands for Invoicee {
