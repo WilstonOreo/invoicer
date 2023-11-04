@@ -104,7 +104,8 @@ struct InvoiceConfig {
 pub struct Config {
     contact: Contact,
     payment: Payment,
-    invoice: InvoiceConfig
+    invoice: InvoiceConfig,
+    locale: Option<Locale>,
 }
 
 impl Config {
@@ -125,10 +126,17 @@ pub struct Invoice {
     positions: Vec<InvoicePosition>,
     begin_date: DateTime,
     end_date: DateTime,
+    locale: Locale,
 }
 
 impl Invoice {
     pub fn new(date: DateTime, config: Config, invoicee: Invoicee) -> Self {
+        let locale = if invoicee.locale.as_ref().is_some() { 
+            invoicee.locale.as_ref().unwrap().clone()
+        } else {
+            config.locale.as_ref().unwrap_or(&Locale::default()).clone()
+        };
+        
         Invoice {
             date: date,
             config: config,
@@ -137,11 +145,12 @@ impl Invoice {
             positions: Vec::new(),
             begin_date: DateTime::MAX,
             end_date: DateTime::MIN,
+            locale: locale
         }
     }
 
-    pub fn locale(&self) -> Locale {
-        self.invoicee.locale.clone().unwrap_or_default()
+    pub fn locale(&self) -> &Locale {
+        &self.locale
     }
     
     pub fn add_position(&mut self, position: InvoicePosition) {
@@ -233,7 +242,7 @@ impl InvoicePosition {
         self.amount * self.rate
     }
 
-    fn generate_tex<'a>(&self, w: &'a mut dyn Write, l: Locale) -> std::io::Result<()> {
+    fn generate_tex<'a>(&self, w: &'a mut dyn Write, l: &Locale) -> std::io::Result<()> {
         writeln!(w, "\\position{{{text}}}{{{amount}{unit}}}{{{rate}}}{{{net}}}", 
             text = self.text,
             amount = l.format_number(self.amount, 2),
