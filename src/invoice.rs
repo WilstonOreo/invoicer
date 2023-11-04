@@ -95,8 +95,7 @@ impl GenerateTexCommands for Invoicee {
 #[derive(Debug, Deserialize)]
 struct InvoiceConfig {
     template: String,
-    worklog_template: String,
-    filename_format: String,
+    filename_format: Option<String>,
     days_for_payment: Option<u32>,
     calculate_value_added_tax: bool    
 }
