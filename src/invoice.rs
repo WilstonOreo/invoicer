@@ -369,29 +369,29 @@ impl GenerateTex for Invoice {
         let mut template = TexTemplate::new(format!("templates/{}", &self.config.template())); 
         
         template
-            .add_tag("LANGUAGE",  |w: &mut dyn Write| -> std::io::Result<()> {
+            .token("LANGUAGE",  |w: &mut dyn Write| -> std::io::Result<()> {
                 self.locale().generate_tex(w)
             })
-            .add_tag( "INVOICEE_ADDRESS", |w: &mut dyn Write| -> std::io::Result<()> {            
+            .token( "INVOICEE_ADDRESS", |w: &mut dyn Write| -> std::io::Result<()> {            
                 self.invoicee.generate_tex_commands(w, "invoicee")
             })
-            .add_tag( "BILLER_ADDRESS", |w: &mut dyn Write| -> std::io::Result<()> {            
+            .token( "BILLER_ADDRESS", |w: &mut dyn Write| -> std::io::Result<()> {            
                 self.invoicer.generate_tex_commands(w, "my")
             })
-            .add_tag("PAYMENT_DETAILS", |w: &mut dyn Write| -> std::io::Result<()> {
+            .token("PAYMENT_DETAILS", |w: &mut dyn Write| -> std::io::Result<()> {
                 self.payment.generate_tex_commands(w, "my")
             })
-            .add_tag("INVOICE_DETAILS", |w: &mut dyn Write| -> std::io::Result<()> {
+            .token("INVOICE_DETAILS", |w: &mut dyn Write| -> std::io::Result<()> {
                 let details = InvoiceDetails::from_invoice(&self);
                 details.generate_tex_commands(w, "invoice")
             })
-            .add_tag("INVOICE_POSITIONS", |w: &mut dyn Write| -> std::io::Result<()> {
+            .token("INVOICE_POSITIONS", |w: &mut dyn Write| -> std::io::Result<()> {
                 for position in &self.positions {
                     position.generate_tex(w, &self.locale())?;
                 }
                 Ok(())
             })
-            .add_tag("INVOICE_SUM", |w: &mut dyn Write| -> std::io::Result<()> {
+            .token("INVOICE_SUM", |w: &mut dyn Write| -> std::io::Result<()> {
                 let l = self.locale();
                 
                 if self.config.calculate_value_added_tax() {
@@ -409,7 +409,7 @@ impl GenerateTex for Invoice {
     
                 Ok(())
             })
-            .add_tag("INVOICE_VALUE_TAX_NOTE", |w: &mut dyn Write| -> std::io::Result<()> {
+            .token("INVOICE_VALUE_TAX_NOTE", |w: &mut dyn Write| -> std::io::Result<()> {
                 if !self.config.calculate_value_added_tax() {
                     writeln!(w, "\\trinvoicevaluetaxnote")?;
                 }

@@ -61,7 +61,7 @@ impl<'a> TexTemplate<'a> {
         }
     }
 
-    pub fn add_tag(&mut self, name: &str, tag: impl Fn(&mut dyn Write) -> Result<(), std::io::Error> + 'a) -> &mut Self {
+    pub fn token(&mut self, name: &str, tag: impl Fn(&mut dyn Write) -> Result<(), std::io::Error> + 'a) -> &mut Self {
         self.tags.insert(name.to_string(), Box::new(tag));
         self
     }
