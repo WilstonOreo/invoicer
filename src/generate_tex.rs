@@ -1,6 +1,6 @@
 
 use struct_iterable::Iterable;
-use std::io::Write;
+use std::{io::Write, collections::HashMap};
 
 pub fn generate_tex_command<'a>(mut w: &'a mut dyn Write, commandname: &str, content: &dyn std::any::Any) -> std::io::Result<()> {   
     if let Some(string) = crate::helpers::any_to_str(content) {
@@ -21,6 +21,8 @@ pub trait GenerateTexCommands : Iterable {
         Ok(())
     }
 }
+
+
 
 pub trait GenerateTex {
     fn generate_tex<'a>(&self, w: &'a mut dyn Write) -> std::io::Result<()>;
@@ -46,3 +48,69 @@ pub trait GenerateTex {
     }
 }
 
+pub struct TexTemplate<'a> {
+    filename: String,
+    tags: std::collections::HashMap<String, Box<dyn Fn(&mut dyn Write) -> Result<(), std::io::Error> + 'a>>
+}
+
+impl<'a> TexTemplate<'a> {
+    pub fn new(filename: String) -> Self {
+        Self {
+            filename: filename,
+            tags: HashMap::new()
+        }
+    }
+
+    pub fn add_tag(&mut self, name: &str, tag: impl Fn(&mut dyn Write) -> Result<(), std::io::Error> + 'a) -> &mut Self {
+        self.tags.insert(name.to_string(), Box::new(tag));
+        self
+    }
+
+    pub fn generate(&self, w: &mut dyn Write) -> std::io::Result<()> {
+        if let Ok(lines) = crate::helpers::read_lines(&self.filename) {
+            // Consumes the iterator, returns an (Optional) String
+            for line in lines {
+                if let Ok(line) = line {
+                    if line.starts_with("\\input{") {
+                        let filename = line.replace("\\input{", "").replace("}", "");
+                        self.inline_input(&filename, w)?;
+                        continue;
+                    }
+                    writeln!(w, "{}", line)?;                    
+
+                    if let Some(line_template) =  Self::tag_name_from_line(&line) {
+                        if let Some(handler) = self.tags.get(line_template.as_str()) {
+                            handler(w)?;
+                        }
+                    }
+                }
+            }
+        }
+        Ok(())
+    }
+
+
+    fn inline_input(&self, filename: &str, w: &'a mut dyn Write) -> std::io::Result<()> {
+        let filename = format!("templates/{}.tex", filename);
+        match crate::helpers::read_lines(&filename) {
+            Ok(lines) => 
+                for line in lines {
+                    writeln!(w, "{}", line.unwrap())?;
+                }
+            Err(err) => {
+                eprintln!("Could not include {}: {}", filename, err);
+            }
+        }
+        
+        Ok(())
+    }
+
+    fn tag_name_from_line(line: &String) -> Option<String> {
+        let l = line.clone().trim().to_string();
+        if l.starts_with("%$") {
+            Some(l.replace("%$", "").trim().to_string())
+        } else {
+            None
+        }
+    }
+}

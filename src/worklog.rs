@@ -2,7 +2,7 @@
 use serde::Deserialize;
 use crate::helpers::DateTime;
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize, Clone)]
 pub struct WorklogRecord {
     #[serde(rename = "Tags")]
     pub tags: Option<String>,
@@ -68,14 +68,17 @@ impl Worklog {
             // Notice that we need to provide a type hint for automatic
             // deserialization.
             let record: WorklogRecord = result?;
-            worklog.begin_date = record.begin_date().min(worklog.begin_date);
-            worklog.end_date = record.end_date().max(worklog.end_date);
-
-            worklog.records.push(record);
+            worklog.add_record(record);
         }
 
         Ok(worklog)
     }
+    pub fn add_record(&mut self, record: WorklogRecord) {
+        self.begin_date = record.begin_date().min(self.begin_date);
+        self.end_date = record.end_date().max(self.end_date);
+        self.records.push(record);
+    }
+
 
     pub fn from_csv_file(filename: &str)  -> Result<Self, Box<dyn std::error::Error>> {
         use std::io::BufReader;
@@ -90,6 +93,10 @@ impl Worklog {
             sum += record.net();
         }
         sum
+    }
+
+    pub fn sort(&mut self) {
+        self.records.sort_by_key(|r| r.begin_date());
     }
 
 

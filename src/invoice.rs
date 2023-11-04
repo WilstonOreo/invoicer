@@ -95,7 +95,8 @@ struct InvoiceConfig {
 //    #[serde(default = "default_filename_format")]
     filename_format: Option<String>,
     days_for_payment: Option<u32>,
-    calculate_value_added_tax: Option<bool>
+    calculate_value_added_tax: Option<bool>,
+    timesheet: Option<bool>,
 }
 
 fn locale_from_str<'de, D>(deserializer: D) -> Result<Option<Locale>, D::Error>
@@ -127,6 +128,7 @@ impl InvoiceConfig {
     default_getter!(filename_format, String, "${INVOICENUMBER}_${INVOICE}_${INVOICEE}.tex");
     default_getter!(days_for_payment, u32, 14_u32);
     default_getter!(calculate_value_added_tax, bool, true);
+    default_getter!(timesheet, bool, true);
 }
 
 
@@ -147,22 +149,7 @@ impl Config {
 use std::ops::Add;
 
 
-struct TimeSheet {
-    items: Vec<WorklogRecord>
-}
-
-impl TimeSheet {
-    pub fn new() -> Self {
-        Self {
-            items: Vec::new()
-        }
-    }
-
-    pub fn add_worklog(&mut self, worklog: &Worklog) {
-        for record in worklog.records() {
-        }
-    }
-}
+pub type Timesheet = Worklog;
 
 pub struct Invoice {
     date: DateTime,
@@ -172,7 +159,7 @@ pub struct Invoice {
     counter: u32,
     invoicee: Invoicee,
     positions: Vec<InvoicePosition>,
-    timesheet: Option<TimeSheet>,
+    timesheet: Option<Timesheet>,
     begin_date: DateTime,
     end_date: DateTime,
 }
@@ -223,6 +210,13 @@ impl Invoice {
             self.begin_date = record.begin_date().min(self.begin_date);
             self.end_date = record.end_date().max(self.end_date);
 
+            if self.config.timesheet() {
+                if self.timesheet.is_none() {
+                    self.timesheet = Some(Timesheet::new());
+                }
+                self.timesheet.as_mut().unwrap().add_record(record.clone());
+            }
+
             let text = record.message.clone();
             let position = InvoicePosition::from_worklog_record(&record, worklog.rate());
             if positions.contains_key(&text) {
@@ -235,6 +229,11 @@ impl Invoice {
         for (_, position) in positions {
             self.positions.push(position)
         }
+
+        // Sort timesheet each time a worklog was added
+        if self.config.timesheet() {
+            self.timesheet.as_mut().unwrap().sort();
+        }
     }
 
     pub fn number(&self) -> String {
@@ -245,15 +244,7 @@ impl Invoice {
             .replace("${COUNTER}", format!("{:02}", self.counter).as_str())
     }
 
-    fn line_template_name(line: &String) -> Option<String> {
-        let l = line.clone().trim().to_string();
-        if l.starts_with("%$") {
-            Some(l.replace("%$", "").trim().to_string())
-        } else {
-            None
-        }
-    }
-    
+
     fn begin_date(&self) -> DateTime {
         self.begin_date
     }
@@ -375,82 +366,56 @@ impl InvoicePosition {
 
 impl GenerateTex for Invoice {
     fn generate_tex<'a>(&self, w: &'a mut dyn Write) -> std::io::Result<()> {
-        let mut handlers: HashMap<&str, Box<dyn Fn(&mut dyn Write) -> Result<(), std::io::Error>>> = HashMap::new();
-
-        handlers.insert("LANGUAGE", Box::new(|w: &mut dyn Write| -> std::io::Result<()> {            
-            self.locale().generate_tex(w)
-        }));
-
-        handlers.insert("INVOICEE_ADDRESS", Box::new(|w: &mut dyn Write| -> std::io::Result<()> {
-            self.invoicee.generate_tex_commands(w, "invoicee")
-        }));
-
-        handlers.insert("BILLER_ADDRESS", Box::new(|w: &mut dyn Write| -> std::io::Result<()> {
-            self.invoicer.generate_tex_commands(w, "my")
-        }));
-
-        handlers.insert("PAYMENT_DETAILS", Box::new(|w: &mut dyn Write| -> std::io::Result<()> {
-            self.payment.generate_tex_commands(w, "my")
-        }));
-
-        handlers.insert("INVOICE_DETAILS", Box::new(|w: &mut dyn Write| -> std::io::Result<()> {
-            let details = InvoiceDetails::from_invoice(&self);
-            details.generate_tex_commands(w, "invoice")
-        }));
-
-        handlers.insert("INVOICE_POSITIONS", Box::new(|w: &mut dyn Write| -> std::io::Result<()> {
-            for position in &self.positions {
-                position.generate_tex(w, &self.locale())?;
-            }
-            Ok(())
-        }));
-
-        handlers.insert("INVOICE_SUM", Box::new(|w: &mut dyn Write| -> std::io::Result<()> {
-            let l = self.locale();
-            
-            if self.config.calculate_value_added_tax() {
-                writeln!(w, "\\invoicesum{{{sum}}}{{{tax_rate}}}{{{tax}}}{{{sum_with_tax}}}", 
-                    sum = l.format_amount(self.sum()), 
-                    tax_rate = self.tax_rate(), 
-                    tax = l.format_amount(self.tax()), 
-                    sum_with_tax = l.format_amount(self.sum_with_tax()) 
-                )?;
-            } else {
-                writeln!(w, "\\invoicesumnotax{{{sum}}}",
-                    sum = l.format_amount(self.sum()), 
-                )?;
-            }
-
-            Ok(())
-        }));
-        handlers.insert("INVOICE_VALUE_TAX_NOTE", Box::new(|w: &mut dyn Write| -> std::io::Result<()> {
-            if !self.config.calculate_value_added_tax() {
-                writeln!(w, "\\trinvoicevaluetaxnote")?;
-            }
-            Ok(())
-        }));
-
-
-        if let Ok(lines) = crate::helpers::read_lines(format!("templates/{}", &self.config.template())) {
-            // Consumes the iterator, returns an (Optional) String
-            for line in lines {
-                if let Ok(line) = line {
-                    if line.starts_with("\\input{") {
-                        let filename = line.replace("\\input{", "").replace("}", "");
-                        self.inline_input(&filename, w)?;
-                        continue;
-                    }
-                    writeln!(w, "{}", line)?;                    
-
-                    if let Some(line_template) =  Self::line_template_name(&line) {
-                        if let Some(handler) = handlers.get(line_template.as_str()) {
-                            handler(w)?;
-                        }
-                    }
+        let mut template = TexTemplate::new(format!("templates/{}", &self.config.template())); 
+        
+        template
+            .add_tag("LANGUAGE",  |w: &mut dyn Write| -> std::io::Result<()> {
+                self.locale().generate_tex(w)
+            })
+            .add_tag( "INVOICEE_ADDRESS", |w: &mut dyn Write| -> std::io::Result<()> {            
+                self.invoicee.generate_tex_commands(w, "invoicee")
+            })
+            .add_tag( "BILLER_ADDRESS", |w: &mut dyn Write| -> std::io::Result<()> {            
+                self.invoicer.generate_tex_commands(w, "my")
+            })
+            .add_tag("PAYMENT_DETAILS", |w: &mut dyn Write| -> std::io::Result<()> {
+                self.payment.generate_tex_commands(w, "my")
+            })
+            .add_tag("INVOICE_DETAILS", |w: &mut dyn Write| -> std::io::Result<()> {
+                let details = InvoiceDetails::from_invoice(&self);
+                details.generate_tex_commands(w, "invoice")
+            })
+            .add_tag("INVOICE_POSITIONS", |w: &mut dyn Write| -> std::io::Result<()> {
+                for position in &self.positions {
+                    position.generate_tex(w, &self.locale())?;
                 }
-            }
-        }
-        Ok(())
+                Ok(())
+            })
+            .add_tag("INVOICE_SUM", |w: &mut dyn Write| -> std::io::Result<()> {
+                let l = self.locale();
+                
+                if self.config.calculate_value_added_tax() {
+                    writeln!(w, "\\invoicesum{{{sum}}}{{{tax_rate}}}{{{tax}}}{{{sum_with_tax}}}", 
+                        sum = l.format_amount(self.sum()), 
+                        tax_rate = self.tax_rate(), 
+                        tax = l.format_amount(self.tax()), 
+                        sum_with_tax = l.format_amount(self.sum_with_tax()) 
+                    )?;
+                } else {
+                    writeln!(w, "\\invoicesumnotax{{{sum}}}",
+                        sum = l.format_amount(self.sum()), 
+                    )?;
+                }
+    
+                Ok(())
+            })
+            .add_tag("INVOICE_VALUE_TAX_NOTE", |w: &mut dyn Write| -> std::io::Result<()> {
+                if !self.config.calculate_value_added_tax() {
+                    writeln!(w, "\\trinvoicevaluetaxnote")?;
+                }
+                Ok(())
+            })
+            .generate(w)
     }
 }
 
