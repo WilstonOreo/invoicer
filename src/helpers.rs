@@ -8,6 +8,10 @@ pub fn from_toml_file<T: serde::de::DeserializeOwned>(filename: &str)  -> Result
     Ok(toml::from_str(&s)?)
 }
 
+pub fn name_from_file(filename: &str) -> String {
+    std::path::Path::new(&filename).file_stem().unwrap().to_str().unwrap().to_string()
+}
+
 pub trait FromTomlFile: serde::de::DeserializeOwned {
     fn from_toml_file(filename: &str)  -> Result<Self, Box<dyn std::error::Error>> {
         let mut file = std::fs::File::open(&filename)?;
