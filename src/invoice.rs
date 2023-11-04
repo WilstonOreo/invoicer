@@ -369,29 +369,29 @@ impl GenerateTex for Invoice {
         let mut template = TexTemplate::new(format!("templates/{}", &self.config.template())); 
         
         template
-            .token("LANGUAGE",  |w: &mut dyn Write| -> std::io::Result<()> {
+            .token("LANGUAGE",  |w| {
                 self.locale().generate_tex(w)
             })
-            .token( "INVOICEE_ADDRESS", |w: &mut dyn Write| -> std::io::Result<()> {            
+            .token( "INVOICEE_ADDRESS", |w| {            
                 self.invoicee.generate_tex_commands(w, "invoicee")
             })
-            .token( "BILLER_ADDRESS", |w: &mut dyn Write| -> std::io::Result<()> {            
+            .token( "BILLER_ADDRESS", |w| {            
                 self.invoicer.generate_tex_commands(w, "my")
             })
-            .token("PAYMENT_DETAILS", |w: &mut dyn Write| -> std::io::Result<()> {
+            .token("PAYMENT_DETAILS", |w| {
                 self.payment.generate_tex_commands(w, "my")
             })
-            .token("INVOICE_DETAILS", |w: &mut dyn Write| -> std::io::Result<()> {
+            .token("INVOICE_DETAILS", |w| {
                 let details = InvoiceDetails::from_invoice(&self);
                 details.generate_tex_commands(w, "invoice")
             })
-            .token("INVOICE_POSITIONS", |w: &mut dyn Write| -> std::io::Result<()> {
+            .token("INVOICE_POSITIONS", |w: &mut dyn Write| {
                 for position in &self.positions {
                     position.generate_tex(w, &self.locale())?;
                 }
                 Ok(())
             })
-            .token("INVOICE_SUM", |w: &mut dyn Write| -> std::io::Result<()> {
+            .token("INVOICE_SUM", |w: &mut dyn Write| {
                 let l = self.locale();
                 
                 if self.config.calculate_value_added_tax() {
@@ -409,7 +409,7 @@ impl GenerateTex for Invoice {
     
                 Ok(())
             })
-            .token("INVOICE_VALUE_TAX_NOTE", |w: &mut dyn Write| -> std::io::Result<()> {
+            .token("INVOICE_VALUE_TAX_NOTE", |w| {
                 if !self.config.calculate_value_added_tax() {
                     writeln!(w, "\\trinvoicevaluetaxnote")?;
                 }
