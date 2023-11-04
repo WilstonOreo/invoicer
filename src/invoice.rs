@@ -177,7 +177,11 @@ impl Invoice {
         }
     }
     pub fn number(&self) -> String {
-        format!("{}{:02}", self.date.format("%Y%m").to_string(), self.counter)
+        let date = self.date.date();
+        self.config.invoice.number_format
+            .replace("%Y", format!("{:04}", date.year()).as_str())
+            .replace("%m", format!("{:02}", date.month()).as_str())
+            .replace("$COUNTER", format!("{:02}", self.counter).as_str())
     }
 
     fn line_template_name(line: &String) -> Option<String> {
@@ -226,12 +230,12 @@ impl Invoice {
     }
 
     pub fn filename(&self) -> String {
-        let fmt = self.config.invoice.filename_format.clone().unwrap_or("$INVOICENUMBER_$DOCUMENTTYPE_$INVOICEE.tex".to_string());
+        let fmt = &self.config.invoice.filename_format;
 
         fmt
             .replace("$INVOICENUMBER", self.number().as_str())
-            .replace("$DOCUMENTTYPE", &self.locale().tr("invoice".to_string()))
-            .replace("$INVOICEE", &self.invoicee.name.as_ref().unwrap())
+            .replace("$INVOICE", &self.locale().tr("invoice".to_string()))
+            .replace("$INVOICEE", &self.invoicee.name)
     }
 }
 

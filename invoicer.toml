@@ -18,10 +18,8 @@ taxrate = 19.0
 
 [invoice]
 template = "invoice.tex"
-filename_format = "$INVOICENUMBER_$DOCUMENTTYPE_$INVOICEE.tex"
+number_format = "%Y%m%"
+filename_format = "INVOICENUMBER_$INVOICE_$INVOICEE.tex"
 days_for_payment = 14
 calculate_value_added_tax = true
-
-[worklog]
-template = "worklog.tex"
-
+timesheet = true
