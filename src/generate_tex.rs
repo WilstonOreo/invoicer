@@ -38,5 +38,10 @@ pub trait GenerateTex {
         
         Ok(())
     } 
+
+    fn generate_tex_file<P: AsRef<std::path::Path>>(&self, path: P) -> std::io::Result<()> {
+        let mut f = std::fs::File::create(path)?;
+        self.generate_tex(&mut f)
+    }
 }
 
