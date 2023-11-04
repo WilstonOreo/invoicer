@@ -13,7 +13,6 @@ accountholder = "John Doe"
 iban = "DE123456789012345678"
 bic = "MYBANKID"
 taxid = "12345678"
-currency = "EUR"
 tax_rate = 19.0
 default_rate = 100.0
 
