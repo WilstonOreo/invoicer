@@ -176,7 +176,63 @@ impl Invoice {
             self.positions.push(position)
         }
     }
+    pub fn number(&self) -> String {
+        format!("{}{:02}", self.date.format("%Y%m").to_string(), self.counter)
+    }
 
+    fn line_template_name(line: &String) -> Option<String> {
+        let l = line.clone().trim().to_string();
+        if l.starts_with("%$") {
+            Some(l.replace("%$", "").trim().to_string())
+        } else {
+            None
+        }
+    }
+    
+    fn begin_date(&self) -> DateTime {
+        self.begin_date
+    }
+
+    fn end_date(&self) -> DateTime {
+        self.end_date
+    }
+
+    pub fn sum(&self) -> f32 {
+        let mut sum = 0.0_f32;
+        for position in &self.positions {
+            sum += position.net();
+        }
+        sum
+    }
+
+    pub fn sum_with_tax(&self) -> f32 {        
+        self.sum() * (1.0 + self.tax_rate() / 100.0)
+    }
+
+    pub fn tax(&self) -> f32 {
+        self.sum_with_tax() - self.sum() 
+    }
+
+    pub fn tax_rate(&self) -> f32 {
+        self.config.payment.taxrate
+    }
+
+    pub fn currency(&self) -> Currency {
+        self.config.payment.currency()
+    }
+
+    pub fn currency_symbol(&self) -> String {
+        self.config.payment.currency_symbol()
+    }
+
+    pub fn filename(&self) -> String {
+        let fmt = self.config.invoice.filename_format.clone().unwrap_or("$INVOICENUMBER_$DOCUMENTTYPE_$INVOICEE.tex".to_string());
+
+        fmt
+            .replace("$INVOICENUMBER", self.number().as_str())
+            .replace("$DOCUMENTTYPE", &self.locale().tr("invoice".to_string()))
+            .replace("$INVOICEE", &self.invoicee.name.as_ref().unwrap())
+    }
 }
 
 #[derive(Debug, Iterable)]
@@ -252,60 +308,6 @@ impl InvoicePosition {
     }
 }
 
-
-
-
-impl Invoice {
-    pub fn number(&self) -> String {
-        format!("{}{:02}", self.date.format("%Y%m").to_string(), self.counter)
-    }
-
-    fn line_template_name(line: &String) -> Option<String> {
-        let l = line.clone().trim().to_string();
-        if l.starts_with("%$") {
-            Some(l.replace("%$", "").trim().to_string())
-        } else {
-            None
-        }
-    }
-    
-    fn begin_date(&self) -> DateTime {
-        self.begin_date
-    }
-
-    fn end_date(&self) -> DateTime {
-        self.end_date
-    }
-
-    pub fn sum(&self) -> f32 {
-        let mut sum = 0.0_f32;
-        for position in &self.positions {
-            sum += position.net();
-        }
-        sum
-    }
-
-    pub fn sum_with_tax(&self) -> f32 {        
-        self.sum() * (1.0 + self.tax_rate() / 100.0)
-    }
-
-    pub fn tax(&self) -> f32 {
-        self.sum_with_tax() - self.sum() 
-    }
-
-    pub fn tax_rate(&self) -> f32 {
-        self.config.payment.taxrate
-    }
-
-    pub fn currency(&self) -> Currency {
-        self.config.payment.currency()
-    }
-
-    pub fn currency_symbol(&self) -> String {
-        self.config.payment.currency_symbol()
-    }
-
-}
 
 
 impl GenerateTex for Invoice {
