@@ -50,19 +50,19 @@ pub trait GenerateTex {
 
 pub struct TexTemplate<'a> {
     filename: String,
-    tags: std::collections::HashMap<String, Box<dyn Fn(&mut dyn Write) -> Result<(), std::io::Error> + 'a>>
+    tokens: std::collections::HashMap<String, Box<dyn Fn(&mut dyn Write) -> Result<(), std::io::Error> + 'a>>
 }
 
 impl<'a> TexTemplate<'a> {
     pub fn new(filename: String) -> Self {
         Self {
             filename: filename,
-            tags: HashMap::new()
+            tokens: HashMap::new()
         }
     }
 
     pub fn token(&mut self, name: &str, tag: impl Fn(&mut dyn Write) -> Result<(), std::io::Error> + 'a) -> &mut Self {
-        self.tags.insert(name.to_string(), Box::new(tag));
+        self.tokens.insert(name.to_string(), Box::new(tag));
         self
     }
 
@@ -78,8 +78,8 @@ impl<'a> TexTemplate<'a> {
                     }
                     writeln!(w, "{}", line)?;                    
 
-                    if let Some(line_template) =  Self::tag_name_from_line(&line) {
-                        if let Some(handler) = self.tags.get(line_template.as_str()) {
+                    if let Some(line_template) =  Self::token_name_from_line(&line) {
+                        if let Some(handler) = self.tokens.get(line_template.as_str()) {
                             handler(w)?;
                         }
                     }
@@ -105,7 +105,7 @@ impl<'a> TexTemplate<'a> {
         Ok(())
     }
 
-    fn tag_name_from_line(line: &String) -> Option<String> {
+    fn token_name_from_line(line: &String) -> Option<String> {
         let l = line.clone().trim().to_string();
         if l.starts_with("%$") {
             Some(l.replace("%$", "").trim().to_string())
