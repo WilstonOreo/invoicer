@@ -369,13 +369,13 @@ impl GenerateTex for Invoice {
         let mut template = TexTemplate::new(format!("templates/{}", &self.config.template())); 
         
         template
-            .token("LANGUAGE",  |w| {
+            .token("LANGUAGE", |w| {
                 self.locale().generate_tex(w)
             })
-            .token( "INVOICEE_ADDRESS", |w| {            
+            .token("INVOICEE_ADDRESS", |w| {            
                 self.invoicee.generate_tex_commands(w, "invoicee")
             })
-            .token( "BILLER_ADDRESS", |w| {            
+            .token("BILLER_ADDRESS", |w| {            
                 self.invoicer.generate_tex_commands(w, "my")
             })
             .token("PAYMENT_DETAILS", |w| {
@@ -392,28 +392,26 @@ impl GenerateTex for Invoice {
                 Ok(())
             })
             .token("INVOICE_SUM", |w: &mut dyn Write| {
-                let l = self.locale();
-                
+                let l = self.locale();                
                 if self.config.calculate_value_added_tax() {
                     writeln!(w, "\\invoicesum{{{sum}}}{{{tax_rate}}}{{{tax}}}{{{sum_with_tax}}}", 
                         sum = l.format_amount(self.sum()), 
                         tax_rate = self.tax_rate(), 
                         tax = l.format_amount(self.tax()), 
                         sum_with_tax = l.format_amount(self.sum_with_tax()) 
-                    )?;
+                    )
                 } else {
                     writeln!(w, "\\invoicesumnotax{{{sum}}}",
                         sum = l.format_amount(self.sum()), 
-                    )?;
+                    )
                 }
-    
-                Ok(())
             })
             .token("INVOICE_VALUE_TAX_NOTE", |w| {
                 if !self.config.calculate_value_added_tax() {
-                    writeln!(w, "\\trinvoicevaluetaxnote")?;
+                    writeln!(w, "\\trinvoicevaluetaxnote")
+                } else {
+                    Ok(())
                 }
-                Ok(())
             })
             .generate(w)
     }
