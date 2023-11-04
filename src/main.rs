@@ -36,9 +36,16 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     for worklog in worklogs {
         match Worklog::from_csv_file(&worklog) {
-            Ok(worklog) => invoice.add_worklog(&worklog),
+            Ok(mut worklog) => {
+                worklog.set_rate(invoice.default_rate());
+                invoice.add_worklog(&worklog);
+            }
             Err(e) => eprintln!("Error loading worklog {worklog}: {e}")
         }
+    }
+
+    if invoice.positions().is_empty() {
+        eprintln!("Warning: The generated invoice contains no positions!");
     }
 
     use invoicer::generate_tex::GenerateTex;

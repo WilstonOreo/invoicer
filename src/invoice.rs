@@ -1,3 +1,4 @@
+use chrono::Datelike;
 use serde::{Deserialize, Deserializer};
 use std::io::Write;
 use crate::locale::{Currency, Locale};
@@ -31,7 +32,8 @@ pub struct Payment {
     bic: String,
     taxid: String,
     currency: Option<Currency>,
-    taxrate: f32
+    tax_rate: f32,
+    default_rate: Option<f32>
 }
 
 impl Payment {
@@ -59,6 +61,7 @@ pub struct Invoicee {
     #[serde(deserialize_with = "locale_from_str")]
     locale: Option<Locale>,
     contact: Contact,
+    default_rate: Option<f32>
 }
 
 fn locale_from_str<'de, D>(deserializer: D) -> Result<Option<Locale>, D::Error>
@@ -95,10 +98,22 @@ impl GenerateTexCommands for Invoicee {
 #[derive(Debug, Deserialize)]
 struct InvoiceConfig {
     template: String,
-    filename_format: Option<String>,
+    #[serde(default = "default_number_format")]
+    number_format: String,
+    #[serde(default = "default_filename_format")]
+    filename_format: String,
     days_for_payment: Option<u32>,
     calculate_value_added_tax: bool    
 }
+
+fn default_number_format() -> String {
+    "%Y%m${COUNTER}".to_string()
+}
+
+fn default_filename_format() -> String {
+    "${INVOICENUMBER}_${INVOICE}_${INVOICEE}.tex".to_string()
+}
+
 
 #[derive(Debug, Deserialize)]
 pub struct Config {
@@ -117,6 +132,22 @@ impl Config {
 use std::ops::Add;
 
 
+struct TimeSheet {
+    items: Vec<WorklogRecord>
+}
+
+impl TimeSheet {
+    pub fn new() -> Self {
+        Self {
+            items: Vec::new()
+        }
+    }
+
+    pub fn add_worklog(&mut self, worklog: &Worklog) {
+        for record in worklog.records() {
+        }
+    }
+}
 
 pub struct Invoice {
     date: DateTime,
@@ -124,6 +155,7 @@ pub struct Invoice {
     counter: u32,
     invoicee: Invoicee,
     positions: Vec<InvoicePosition>,
+    timesheet: Option<TimeSheet>,
     begin_date: DateTime,
     end_date: DateTime,
     locale: Locale,
@@ -143,6 +175,7 @@ impl Invoice {
             counter: 0,
             invoicee: invoicee,
             positions: Vec::new(),
+            timesheet: None,
             begin_date: DateTime::MAX,
             end_date: DateTime::MIN,
             locale: locale
@@ -157,6 +190,15 @@ impl Invoice {
         self.positions.push(position);
     }
 
+    pub fn positions(&self) -> &Vec<InvoicePosition> {
+        &self.positions
+    }
+
+    pub fn default_rate(&self) -> f32 {
+        self.invoicee.default_rate
+            .unwrap_or(self.config.payment.default_rate.unwrap_or(100.0))
+    }
+
     pub fn add_worklog(&mut self, worklog: &Worklog) {
         let mut positions: BTreeMap<String, InvoicePosition> = BTreeMap::new();
 
@@ -165,23 +207,25 @@ impl Invoice {
             self.end_date = record.end_date().max(self.end_date);
 
             let text = record.message.clone();
+            let position = InvoicePosition::from_worklog_record(&record, worklog.rate());
             if positions.contains_key(&text) {
-                positions.insert(text, positions.get(&record.message).unwrap().clone() + InvoicePosition::from_worklog_record(&record));
+                positions.insert(text, positions.get(&record.message).unwrap().clone() + position);
             } else {
-                positions.insert(text, InvoicePosition::from_worklog_record(&record));
+                positions.insert(text, position);
             }
         }
 
-        for (text, position) in positions {
+        for (_, position) in positions {
             self.positions.push(position)
         }
     }
+
     pub fn number(&self) -> String {
         let date = self.date.date();
         self.config.invoice.number_format
             .replace("%Y", format!("{:04}", date.year()).as_str())
             .replace("%m", format!("{:02}", date.month()).as_str())
-            .replace("$COUNTER", format!("{:02}", self.counter).as_str())
+            .replace("${COUNTER}", format!("{:02}", self.counter).as_str())
     }
 
     fn line_template_name(line: &String) -> Option<String> {
@@ -218,7 +262,7 @@ impl Invoice {
     }
 
     pub fn tax_rate(&self) -> f32 {
-        self.config.payment.taxrate
+        self.config.payment.tax_rate
     }
 
     pub fn currency(&self) -> Currency {
@@ -233,9 +277,9 @@ impl Invoice {
         let fmt = &self.config.invoice.filename_format;
 
         fmt
-            .replace("$INVOICENUMBER", self.number().as_str())
-            .replace("$INVOICE", &self.locale().tr("invoice".to_string()))
-            .replace("$INVOICEE", &self.invoicee.name)
+            .replace("${INVOICENUMBER}", self.number().as_str())
+            .replace("${INVOICE}", &self.locale().tr("invoice".to_string()))
+            .replace("${INVOICEE}", &self.invoicee.name)
     }
 }
 
@@ -266,7 +310,7 @@ impl GenerateTexCommands for InvoiceDetails {}
 pub struct InvoicePosition {
     text: String,
     amount: f32,
-    rate: f32,
+    price_per_item: f32,
     unit: String 
 }
 
@@ -280,7 +324,7 @@ impl Add for InvoicePosition {
         InvoicePosition {
             text: self.text, 
             amount: sum,
-            rate: (self.amount * self.rate + other.amount * other.rate) / sum,
+            price_per_item: (self.amount * self.price_per_item + other.amount * other.price_per_item) / sum,
             unit: self.unit
         }
 
@@ -289,17 +333,17 @@ impl Add for InvoicePosition {
 
 
 impl InvoicePosition {
-    pub fn from_worklog_record(w: &WorklogRecord) -> Self {
+    pub fn from_worklog_record(w: &WorklogRecord, default_rate: f32) -> Self {
         Self {
             text: w.message.clone(),
             amount: w.hours,
-            rate: w.rate,
+            price_per_item: w.rate.unwrap_or(default_rate),
             unit: String::from("h")
         }
     }
 
     fn net(&self) -> f32 {
-        self.amount * self.rate
+        self.amount * self.price_per_item
     }
 
     fn generate_tex<'a>(&self, w: &'a mut dyn Write, l: &Locale) -> std::io::Result<()> {
@@ -307,7 +351,7 @@ impl InvoicePosition {
             text = self.text,
             amount = l.format_number(self.amount, 2),
             unit = self.unit,
-            rate = format!("{rate}{currency}/{unit}", rate = self.rate, currency = l.currency().symbol(), unit = self.unit),
+            rate = format!("{p}{currency}/{unit}", p = self.price_per_item, currency = l.currency().symbol(), unit = self.unit),
             net = l.format_amount(self.net()))
     }
 }

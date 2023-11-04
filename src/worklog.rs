@@ -4,9 +4,15 @@ use crate::helpers::DateTime;
 
 #[derive(Debug, Deserialize)]
 pub struct WorklogRecord {
+    #[serde(rename = "Tags")]
+    pub tags: Option<Vec<String>>,
+    #[serde(rename = "Start")]
     pub start: String,
+    #[serde(rename = "Hours")]
     pub hours: f32,
-    pub rate: f32,
+    #[serde(rename = "Rate")]
+    pub rate: Option<f32>,
+    #[serde(rename = "Message")]
     pub message: String
 }
 
@@ -22,7 +28,7 @@ impl WorklogRecord {
     }
 
     fn net(&self) -> f32 {
-        self.hours * self.rate
+        self.hours * self.rate.unwrap_or_default()
     }
 }
 
@@ -30,7 +36,8 @@ impl WorklogRecord {
 pub struct Worklog {
     begin_date: DateTime,
     end_date: DateTime,
-    records: Vec<WorklogRecord>
+    records: Vec<WorklogRecord>,
+    rate: f32
 }
 
 impl Worklog {
@@ -39,12 +46,23 @@ impl Worklog {
         Self {
             begin_date: DateTime::MAX,
             end_date: DateTime::MIN,
-            records: Vec::new()
+            records: Vec::new(),
+            rate: 100.0,
         }
+    }
+    
+    pub fn rate(&self) -> f32 {
+        self.rate
+    }
+
+    pub fn set_rate(&mut self, rate: f32) {
+        self.rate = rate;
     }
 
     pub fn from_csv(reader: impl std::io::Read) -> Result<Self, Box<dyn std::error::Error>> {
-        let mut rdr = csv::Reader::from_reader(reader);
+        let mut rdr = csv::ReaderBuilder::new()
+         //   .terminator(csv::Terminator::Any(b'\n'))
+            .from_reader(reader);
         let mut worklog = Self::new();
         
         for result in rdr.deserialize() {
@@ -53,6 +71,7 @@ impl Worklog {
             let record: WorklogRecord = result?;
             worklog.begin_date = record.begin_date().min(worklog.begin_date);
             worklog.end_date = record.end_date().max(worklog.end_date);
+
             worklog.records.push(record);
         }
 
