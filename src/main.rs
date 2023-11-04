@@ -7,11 +7,11 @@ use clap::Parser;
 #[derive(Parser, Debug)]
 #[command(author="Michael Winkelmann", version, about="Invoicer")]
 struct Arguments{
-    #[arg(long)]
+    #[arg(short, long)]
     worklog: Option<Vec<String>>,
     #[arg(short, long)]
     invoicee_toml: Option<String>,
-    #[arg(long)]
+    #[arg(short = 'o', long)]
     invoice_output: Option<String>,
     #[arg(short, long)]
     config: Option<String>,
