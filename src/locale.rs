@@ -94,6 +94,10 @@ impl Locale {
         &self.currency
     }
 
+    pub fn tr(&self, s: String) -> &String {
+        self.translations.get(&s).unwrap()
+    } 
+
     pub fn format_number<T: std::fmt::Display>(&self, number: T, precision: usize) -> String {
         let s = format!("{number:.precision$}")
             .replace(".", &self.decimal);
