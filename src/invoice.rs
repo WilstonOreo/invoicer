@@ -88,6 +88,7 @@ impl FromTomlFile for Invoicee {
 
 impl GenerateTexCommands for Invoicee {
     fn generate_tex_commands<'a>(&self, w: &'a mut dyn Write, prefix: &str) -> std::io::Result<()> {
+        generate_tex_command(w, format!("{prefix}companyname").as_str(), &self.companyname)?;
         generate_tex_command(w, format!("{prefix}name").as_str(), &self.name)?;
         self.contact.generate_tex_commands(w, prefix)?;
         Ok(())
