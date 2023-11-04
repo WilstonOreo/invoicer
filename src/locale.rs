@@ -120,7 +120,7 @@ impl Locale {
 }
 
 
-use crate::{generate_tex::{GenerateTex, generate_tex_command}, helpers::FromTomlFile};
+use crate::{generate_tex::{GenerateTex, generate_tex_command}, helpers::{FromTomlFile, self}};
 
 impl GenerateTex for Locale {
     fn generate_tex<'a>(&self, w: &'a mut dyn std::io::Write) -> std::io::Result<()> {
@@ -133,13 +133,9 @@ impl GenerateTex for Locale {
 
 impl FromTomlFile for Locale {
     fn from_toml_file(filename: &str)  -> Result<Self, Box<dyn std::error::Error>> {
-        let mut file = std::fs::File::open(&filename)?;
-        let mut s = String::new();
-        file.read_to_string(&mut s)?;
-
-        let mut locale: Locale = toml::from_str(&s)?;
-        locale.name = std::path::Path::new(&filename).file_stem().unwrap().to_str().unwrap().to_string();
-
+        let mut locale: Locale = helpers::from_toml_file(filename)?;
+        locale.name = helpers::name_from_file(filename);
+        
         Ok(locale)
     }
 }
