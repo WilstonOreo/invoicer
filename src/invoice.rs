@@ -53,7 +53,9 @@ impl GenerateTexCommands for Payment {}
 
 #[derive(Debug, Deserialize, Iterable)]
 pub struct Invoicee {
-    name: String,
+    #[serde(skip)]
+    name: Option<String>,
+    companyname: Option<String>,
     #[serde(deserialize_with = "locale_from_str")]
     locale: Option<Locale>,
     contact: Contact,
