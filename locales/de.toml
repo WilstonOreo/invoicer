@@ -18,9 +18,8 @@ timeforpayment = "Zahlungsziel"
 performanceperiod = "Leistungszeitraum"
 salutationtext = """
     Sehr geehrte Damen und Herren,\\\\
-    \\vspace{0.5cm}
-    Vereinbarungsgemäß berechne ich für meine Leistungen wie folgt:
-    \\vspace{0.5cm}
+    \\vspace{0.25cm}
+    vereinbarungsgemäß berechne ich für meine Leistungen wie folgt:
 """
 invoicevaluetaxnote = """
     Es wird gemäß \\S 19 Abs. 1 Umsatzsteuergesetz keine Umsatzsteuer erhoben.\\\\

@@ -14,10 +14,6 @@
 
 \begin{document}
 
-\vspace{2cm}
-
-
-\begin{multicols}{3}
 \begin{flushleft}
 \invoiceecompanyname\\
 \invoiceefullname\\
@@ -26,46 +22,35 @@
 \invoiceecountry\\
 \end{flushleft}
 
+\begin{longtable}{p{9.5cm}p{8cm}}
+    \hfill & \myfullname\\
+    \hfill & \mystreet\\
+    \hfill & \myzipcode~\mycity\\
+    \hfill & \myphone\\
 
-\columnbreak
-\begin{flushleft}
-\vfill
-\end{flushleft}
-\vspace{2cm}
+    \ifx\mywebsite\undefined
+    \else
+    \hfill & \href{\mywebsite}{\mywebsite}\\
+    \fi
+    \hfill & \href{\myemail}{\myemail}\\
+    
+\end{longtable}
 
-\columnbreak
-\begin{flushleft}
-\vspace*{1cm}
-\myfullname\\
-\mystreet\\
-\myzipcode~\mycity\\
-\myphone\\
 
-\ifx\mywebsite\undefined
-\else
-\href{\mywebsite}{\mywebsite}\\
-\fi
-\href{\myemail}{\myemail}\\
-\end{flushleft}
+\begin{longtable}{p{9.5cm}p{4cm}r}
+	\hfill & \textbf{Date:} & \invoicedate\\
+	\hfill & \textbf{Invoice Number:} & \invoicenumber\\
+    \hfill & \textbf{Time for payment:} & 14 days\\
+\end{longtable}
 
-\end{multicols}
-
-\begin{flushright}
-	\begin{longtable}{p{10cm}lr}
-		\hfill & \textbf{Date:} & \invoicedate\\
-		\hfill & \textbf{Invoice Number:} & \invoicenumber\\
-		\hfill & \textbf{Time for payment:} & 14 days\\
-	\end{longtable}
-\end{flushright}
-
-\begin{flushleft}
+    \begin{flushleft}
 \begin{LARGE}
 \trinvoice~\invoicenumber\\
 \end{LARGE}
 
 \trperformanceperiod~\invoiceperiodbegin~---~\invoiceperiodend
 
-\vspace{1.0cm}
+\par
 
 \trsalutationtext
 
@@ -84,7 +69,6 @@
 IBAN: & \textbf{\myiban} \\
 BIC: & \textbf{\mybic} \\
 \end{longtable}
-\vspace{0.25cm}
 
 \trclosing
 \break
