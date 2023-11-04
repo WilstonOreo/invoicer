@@ -12,6 +12,7 @@ use struct_iterable::Iterable;
 
 #[derive(Debug, Deserialize, Iterable)]
 pub struct Contact {
+    companyname: Option<String>,
     fullname: String,
     street: String,
     zipcode: u32,
@@ -57,22 +58,10 @@ impl GenerateTexCommands for Payment {}
 pub struct Invoicee {
     #[serde(skip)]
     name: String,
-    companyname: Option<String>,
-    #[serde(deserialize_with = "locale_from_str")]
-    locale: Option<Locale>,
     contact: Contact,
+    invoice: InvoiceConfig,
     default_rate: Option<f32>
 }
-
-fn locale_from_str<'de, D>(deserializer: D) -> Result<Option<Locale>, D::Error>
-where D: Deserializer<'de> {
-    let buf = String::deserialize(deserializer)?;
-
-    use std::str::FromStr;
-    let s = Locale::from_str(&buf).unwrap();
-    Ok(Some(s))
-}
-
 
 
 
@@ -88,7 +77,6 @@ impl FromTomlFile for Invoicee {
 
 impl GenerateTexCommands for Invoicee {
     fn generate_tex_commands<'a>(&self, w: &'a mut dyn Write, prefix: &str) -> std::io::Result<()> {
-        generate_tex_command(w, format!("{prefix}companyname").as_str(), &self.companyname)?;
         generate_tex_command(w, format!("{prefix}name").as_str(), &self.name)?;
         self.contact.generate_tex_commands(w, prefix)?;
         Ok(())
@@ -98,22 +86,49 @@ impl GenerateTexCommands for Invoicee {
 
 #[derive(Debug, Deserialize)]
 struct InvoiceConfig {
-    template: String,
-    #[serde(default = "default_number_format")]
-    number_format: String,
-    #[serde(default = "default_filename_format")]
-    filename_format: String,
+    #[serde(deserialize_with = "locale_from_str", default)]
+    locale: Option<Locale>,
+//    #[serde(default = "default_number_format")]
+    template: Option<String>,
+  //  #[serde(default = "default_number_format")]
+    number_format: Option<String>,
+//    #[serde(default = "default_filename_format")]
+    filename_format: Option<String>,
     days_for_payment: Option<u32>,
-    calculate_value_added_tax: bool    
+    calculate_value_added_tax: Option<bool>
 }
 
-fn default_number_format() -> String {
-    "%Y%m${COUNTER}".to_string()
+fn locale_from_str<'de, D>(deserializer: D) -> Result<Option<Locale>, D::Error>
+where D: Deserializer<'de> {
+    let buf = String::deserialize(deserializer);
+    if buf.is_err() {
+        return Ok(None);
+    }
+    let buf = buf.unwrap();
+
+    use std::str::FromStr;
+    let s = Locale::from_str(&buf).unwrap_or_default();
+    Ok(Some(s))
 }
 
-fn default_filename_format() -> String {
-    "${INVOICENUMBER}_${INVOICE}_${INVOICEE}.tex".to_string()
+macro_rules! default_getter {
+    ($i:ident, $t:ty, $l:literal) => {
+        pub fn $i(&self) -> $t { self.$i.clone().unwrap_or(Into::<$t>::into($l)) }        
+    };
+    ($i:ident, $t:ty) => {
+        pub fn $i(&self) -> $t { self.$i.clone().unwrap_or_default() }        
+    };
 }
+
+impl InvoiceConfig {
+    default_getter!(locale, Locale);
+    default_getter!(template, String, "invoice.tex");
+    default_getter!(number_format, String, "%Y%m${COUNTER}");
+    default_getter!(filename_format, String, "${INVOICENUMBER}_${INVOICE}_${INVOICEE}.tex");
+    default_getter!(days_for_payment, u32, 14_u32);
+    default_getter!(calculate_value_added_tax, bool, true);
+}
+
 
 
 #[derive(Debug, Deserialize)]
@@ -121,7 +136,6 @@ pub struct Config {
     contact: Contact,
     payment: Payment,
     invoice: InvoiceConfig,
-    locale: Option<Locale>,
 }
 
 impl Config {
@@ -152,39 +166,41 @@ impl TimeSheet {
 
 pub struct Invoice {
     date: DateTime,
-    config: Config,
+    config: InvoiceConfig,
+    invoicer: Contact,
+    payment: Payment,
     counter: u32,
     invoicee: Invoicee,
     positions: Vec<InvoicePosition>,
     timesheet: Option<TimeSheet>,
     begin_date: DateTime,
     end_date: DateTime,
-    locale: Locale,
 }
 
 impl Invoice {
     pub fn new(date: DateTime, config: Config, invoicee: Invoicee) -> Self {
-        let locale = if invoicee.locale.as_ref().is_some() { 
-            invoicee.locale.as_ref().unwrap().clone()
-        } else {
-            config.locale.as_ref().unwrap_or(&Locale::default()).clone()
-        };
-        
         Invoice {
             date: date,
-            config: config,
+            config: config.invoice,
+            invoicer: config.contact,
+            payment: config.payment,
             counter: 0,
             invoicee: invoicee,
             positions: Vec::new(),
             timesheet: None,
             begin_date: DateTime::MAX,
             end_date: DateTime::MIN,
-            locale: locale
         }
     }
 
-    pub fn locale(&self) -> &Locale {
-        &self.locale
+    pub fn locale(&self) -> Locale {
+        match &self.invoicee.invoice.locale {
+            Some(locale) => locale.clone(),
+            None => match &self.config.locale {
+                Some(locale) => locale.clone(),
+                None => Locale::default()
+            }
+        }
     }
     
     pub fn add_position(&mut self, position: InvoicePosition) {
@@ -197,7 +213,7 @@ impl Invoice {
 
     pub fn default_rate(&self) -> f32 {
         self.invoicee.default_rate
-            .unwrap_or(self.config.payment.default_rate.unwrap_or(100.0))
+            .unwrap_or(self.payment.default_rate.unwrap_or(100.0))
     }
 
     pub fn add_worklog(&mut self, worklog: &Worklog) {
@@ -223,7 +239,7 @@ impl Invoice {
 
     pub fn number(&self) -> String {
         let date = self.date.date();
-        self.config.invoice.number_format
+        self.config.number_format()
             .replace("%Y", format!("{:04}", date.year()).as_str())
             .replace("%m", format!("{:02}", date.month()).as_str())
             .replace("${COUNTER}", format!("{:02}", self.counter).as_str())
@@ -263,21 +279,19 @@ impl Invoice {
     }
 
     pub fn tax_rate(&self) -> f32 {
-        self.config.payment.tax_rate
+        self.payment.tax_rate
     }
 
     pub fn currency(&self) -> Currency {
-        self.config.payment.currency()
+        self.payment.currency()
     }
 
     pub fn currency_symbol(&self) -> String {
-        self.config.payment.currency_symbol()
+        self.payment.currency_symbol()
     }
 
     pub fn filename(&self) -> String {
-        let fmt = &self.config.invoice.filename_format;
-
-        fmt
+        self.config.filename_format()
             .replace("${INVOICENUMBER}", self.number().as_str())
             .replace("${INVOICE}", &self.locale().tr("invoice".to_string()))
             .replace("${INVOICEE}", &self.invoicee.name)
@@ -372,11 +386,11 @@ impl GenerateTex for Invoice {
         }));
 
         handlers.insert("BILLER_ADDRESS", Box::new(|w: &mut dyn Write| -> std::io::Result<()> {
-            self.config.contact.generate_tex_commands(w, "my")
+            self.invoicer.generate_tex_commands(w, "my")
         }));
 
         handlers.insert("PAYMENT_DETAILS", Box::new(|w: &mut dyn Write| -> std::io::Result<()> {
-            self.config.payment.generate_tex_commands(w, "my")
+            self.payment.generate_tex_commands(w, "my")
         }));
 
         handlers.insert("INVOICE_DETAILS", Box::new(|w: &mut dyn Write| -> std::io::Result<()> {
@@ -386,7 +400,7 @@ impl GenerateTex for Invoice {
 
         handlers.insert("INVOICE_POSITIONS", Box::new(|w: &mut dyn Write| -> std::io::Result<()> {
             for position in &self.positions {
-                position.generate_tex(w, self.locale())?;
+                position.generate_tex(w, &self.locale())?;
             }
             Ok(())
         }));
@@ -394,7 +408,7 @@ impl GenerateTex for Invoice {
         handlers.insert("INVOICE_SUM", Box::new(|w: &mut dyn Write| -> std::io::Result<()> {
             let l = self.locale();
             
-            if self.config.invoice.calculate_value_added_tax {
+            if self.config.calculate_value_added_tax() {
                 writeln!(w, "\\invoicesum{{{sum}}}{{{tax_rate}}}{{{tax}}}{{{sum_with_tax}}}", 
                     sum = l.format_amount(self.sum()), 
                     tax_rate = self.tax_rate(), 
@@ -410,14 +424,14 @@ impl GenerateTex for Invoice {
             Ok(())
         }));
         handlers.insert("INVOICE_VALUE_TAX_NOTE", Box::new(|w: &mut dyn Write| -> std::io::Result<()> {
-            if !self.config.invoice.calculate_value_added_tax {
+            if !self.config.calculate_value_added_tax() {
                 writeln!(w, "\\trinvoicevaluetaxnote")?;
             }
             Ok(())
         }));
 
 
-        if let Ok(lines) = crate::helpers::read_lines(format!("templates/{}", self.config.invoice.template)) {
+        if let Ok(lines) = crate::helpers::read_lines(format!("templates/{}", &self.config.template())) {
             // Consumes the iterator, returns an (Optional) String
             for line in lines {
                 if let Ok(line) = line {

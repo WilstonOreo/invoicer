@@ -1,7 +1,5 @@
-companyname = "Example Client"
-locale = "de"
-
 [contact]
+companyname = "Example Client"
 fullname = "Jane Doe"
 street = "123 Fake St."
 email = "jane.doe@exampleclient.com"
@@ -10,3 +8,5 @@ city = "Berlin"
 country = "Germany"
 phone = "+49123456789"
 
+[invoice]
+locale = "de"
