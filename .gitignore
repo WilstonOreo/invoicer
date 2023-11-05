@@ -1,1 +1,8 @@
 /target
+/tags
+
+*.log
+*.out
+*.aux
+*.pdf
+*.tex
