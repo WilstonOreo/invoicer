@@ -14,7 +14,7 @@ net = "Net"
 date = "Date"
 invoice = "Invoice"
 invoicenumber = "Invoice number"
-timeforpayment = "Payable until"
+timeforpayment = "Payable within"
 performanceperiod = "Performance period"
 salutationtext = """
     Dear ladies and gentlemen,\\\\
@@ -24,6 +24,7 @@ salutationtext = """
 """
 invoicevaluetaxnote = """
     According to Section 19 Paragraph 1 of the Value Added Tax Act (Umsatzsteuergesetz), no value-added tax will be charged.\\\\
+    \\vspace{0.5cm}
 """
 
 paymentrequesttext = """
@@ -32,8 +33,8 @@ paymentrequesttext = """
 
 accountholder = "Account holder"
 closing = """
-    Thank you for your order and I look forward to further cooperation.\\
-    \\vspace{1cm}
+    Thank you for your order and I look forward to further cooperation.\\\\
+    \\vspace{0.5cm}
     Best regards
 """
 
