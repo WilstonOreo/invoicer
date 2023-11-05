@@ -1,5 +1,5 @@
 
-use std::collections::HashSet;
+use std::{collections::HashSet, hash::Hash};
 
 use serde::{Deserialize, Deserializer};
 use crate::helpers::DateTime;
@@ -51,6 +51,13 @@ impl WorklogRecord {
             None => HashSet::new()
         }
     }
+
+    fn has_tag(&self, tag: &str) -> bool {
+        match &self.tags {
+            Some(tags) => tags.contains(tag),
+            None => false
+        }
+    }
 }
 
 
@@ -63,7 +70,6 @@ pub struct Worklog {
 }
 
 impl Worklog {
-
     pub fn new() -> Self {
         Self {
             begin_date: DateTime::MAX,
@@ -73,20 +79,12 @@ impl Worklog {
             tags: HashSet::new(),
         }
     }
-    
-    pub fn rate(&self) -> f32 {
-        self.rate
-    }
-
-    pub fn set_rate(&mut self, rate: f32) {
-        self.rate = rate;
-    }
 
     pub fn from_csv(reader: impl std::io::Read) -> Result<Self, Box<dyn std::error::Error>> {
         let mut rdr = csv::ReaderBuilder::new()
             .from_reader(reader);
         let mut worklog = Self::new();
-        
+
         for result in rdr.deserialize() {
             // Notice that we need to provide a type hint for automatic
             // deserialization.
@@ -95,6 +93,37 @@ impl Worklog {
         }
 
         Ok(worklog)
+    }
+
+    pub fn from_csv_file(filename: &str)  -> Result<Self, Box<dyn std::error::Error>> {
+        use std::io::BufReader;
+        let file = std::fs::File::open(&filename)?;
+        let buf_reader = BufReader::new(file);
+        Self::from_csv(buf_reader)
+    }
+
+    pub fn from_records_with_tag(&self, tag: &str) -> Self {
+        let mut worklog = Worklog::new();
+
+        for record in self.records() {
+            if record.has_tag(tag) {
+                worklog.add_record(record.clone());
+            }
+        }
+
+        worklog
+    }
+
+    pub fn rate(&self) -> f32 {
+        self.rate
+    }
+
+    pub fn set_rate(&mut self, rate: f32) {
+        self.rate = rate;
+    }
+
+    pub fn tags(&self) -> &HashSet<String> {
+        &self.tags
     }
 
     pub fn add_record(&mut self, record: WorklogRecord) {
@@ -109,14 +138,6 @@ impl Worklog {
         for record in worklog.records() {
             self.add_record(record.clone());
         }
-    }
-
-
-    pub fn from_csv_file(filename: &str)  -> Result<Self, Box<dyn std::error::Error>> {
-        use std::io::BufReader;
-        let file = std::fs::File::open(&filename)?;
-        let buf_reader = BufReader::new(file);
-        Self::from_csv(buf_reader)
     }
 
     pub fn sum(&self) -> f32 {
@@ -142,5 +163,11 @@ impl Worklog {
 
     pub fn end_date(&self) -> DateTime {
         self.end_date
+    }
+}
+
+impl Default for Worklog {
+    fn default() -> Self {
+        Worklog::new()
     }
 }
