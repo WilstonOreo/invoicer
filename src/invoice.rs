@@ -1,7 +1,7 @@
 use chrono::Datelike;
 use serde::{Deserialize, Deserializer};
 use std::io::Write;
-use crate::locale::{Currency, Locale};
+use crate::locale::{Currency, Locale, self};
 use crate::generate_tex::*;
 use crate::helpers::{ from_toml_file, DateTime, date_to_str, FromTomlFile };
 use crate::worklog::{ Worklog, WorklogRecord };
@@ -88,15 +88,12 @@ impl GenerateTexCommands for Invoicee {
 struct InvoiceConfig {
     #[serde(deserialize_with = "locale_from_str", default)]
     locale: Option<Locale>,
-//    #[serde(default = "default_number_format")]
     template: Option<String>,
-  //  #[serde(default = "default_number_format")]
     number_format: Option<String>,
-//    #[serde(default = "default_filename_format")]
     filename_format: Option<String>,
     days_for_payment: Option<u32>,
     calculate_value_added_tax: Option<bool>,
-    timesheet: Option<bool>,
+    timesheet_template: Option<String>,
 }
 
 fn locale_from_str<'de, D>(deserializer: D) -> Result<Option<Locale>, D::Error>
@@ -128,7 +125,7 @@ impl InvoiceConfig {
     default_getter!(filename_format, String, "${INVOICENUMBER}_${INVOICE}_${INVOICEE}.tex");
     default_getter!(days_for_payment, u32, 14_u32);
     default_getter!(calculate_value_added_tax, bool, true);
-    default_getter!(timesheet, bool, true);
+    default_getter!(timesheet_template, String);
 }
 
 
@@ -149,7 +146,43 @@ impl Config {
 use std::ops::Add;
 
 
-pub type Timesheet = Worklog;
+pub struct Timesheet {
+    worklog: Worklog,
+    template_file: String,
+    locale: Locale,
+}
+
+impl Timesheet {
+    pub fn new(template_file: String, locale: Locale) -> Self {
+        Self {
+            worklog: Worklog::new(),
+            template_file: format!("templates/{template_file}"),
+            locale: locale.clone(),
+        }
+    }
+    
+    pub fn add_record(&mut self, record: WorklogRecord) {
+        self.worklog.add_record(record);
+    }
+
+    pub fn sort(&mut self) {
+        self.worklog.sort()
+    }
+}
+
+impl GenerateTex for Timesheet {
+    fn generate_tex<'a>(&self, w: &'a mut dyn Write) -> std::io::Result<()> {
+        let mut template = TexTemplate::new(self.template_file.clone());
+        template
+            .token("WORKLOG", |w| {
+                for record in self.worklog.records() {
+                    writeln!(w, "{} & {} & {}\\\\", record.start, self.locale.format_number(record.hours, 2), record.message)?;
+                }
+                Ok(())
+            })
+            .generate(w)
+    }
+}
 
 pub struct Invoice {
     date: DateTime,
@@ -203,6 +236,10 @@ impl Invoice {
             .unwrap_or(self.payment.default_rate.unwrap_or(100.0))
     }
 
+    pub fn generate_timesheet(&self) -> bool {
+        !self.config.timesheet_template().is_empty() || self.timesheet.is_some()
+    }
+
     pub fn add_worklog(&mut self, worklog: &Worklog) {
         let mut positions: BTreeMap<String, InvoicePosition> = BTreeMap::new();
 
@@ -210,9 +247,9 @@ impl Invoice {
             self.begin_date = record.begin_date().min(self.begin_date);
             self.end_date = record.end_date().max(self.end_date);
 
-            if self.config.timesheet() {
+            if self.generate_timesheet() {
                 if self.timesheet.is_none() {
-                    self.timesheet = Some(Timesheet::new());
+                    self.timesheet = Some(Timesheet::new(self.config.timesheet_template(), self.locale()));
                 }
                 self.timesheet.as_mut().unwrap().add_record(record.clone());
             }
@@ -231,7 +268,7 @@ impl Invoice {
         }
 
         // Sort timesheet each time a worklog was added
-        if self.config.timesheet() {
+        if self.generate_timesheet() {
             self.timesheet.as_mut().unwrap().sort();
         }
     }
@@ -412,6 +449,13 @@ impl GenerateTex for Invoice {
                 } else {
                     Ok(())
                 }
+            })
+            .token("TIMESHEET", |w| {
+                if self.generate_timesheet() {
+                    writeln!(w, "\\newpage")?;
+                    self.timesheet.as_ref().unwrap().generate_tex(w)?; 
+                }
+                Ok(())
             })
             .generate(w)
     }
