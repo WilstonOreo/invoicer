@@ -99,7 +99,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         let mut invoice = Invoice::new(date, config.clone(), recipient.clone());
         worklog.set_rate(invoice.default_rate());
 
-        invoice.set_counter(args.counter.unwrap());
+        invoice.set_counter(counter);
             
         use invoicer::generate_tex::GenerateTex;
         let tex_file = match args.invoice_output {
