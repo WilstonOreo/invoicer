@@ -85,10 +85,17 @@ impl Worklog {
 
         Ok(worklog)
     }
+    
     pub fn add_record(&mut self, record: WorklogRecord) {
         self.begin_date = record.begin_date().min(self.begin_date);
         self.end_date = record.end_date().max(self.end_date);
         self.records.push(record);
+    }
+
+    pub fn append(&mut self, worklog: &Self) {
+        for record in worklog.records() {
+            self.add_record(record.clone());
+        }
     }
 
 
