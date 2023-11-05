@@ -7,14 +7,29 @@ use clap::Parser;
 #[derive(Parser, Debug)]
 #[command(author="Michael Winkelmann", version, about="Invoicer")]
 struct Arguments{
+    /// Worklog CSV file
     #[arg(short, long)]
     worklog: Option<Vec<String>>,
+
+    /// Recipient TOML file (optional)
     #[arg(short, long)]
     recipient_toml: Option<String>,
+
+    /// Optional latex output file
     #[arg(short = 'o', long)]
     invoice_output: Option<String>,
-    #[arg(short, long)]
-    config: Option<String>,
+
+    /// Optional config file. 
+    #[arg(short, long, default_value = "invoicer.toml")]
+    config: String,
+
+    /// Optional counter for the invoice to generate an invoice number
+    #[arg(short = 'n', long)]
+    counter: Option<u32>,
+
+    /// Optional invoice date. If no date is given, current date is used.
+    #[arg(short = 'd', long)]
+    date: Option<String>
 }
 
 
@@ -27,10 +42,12 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     }
 
     use invoicer::helpers::FromTomlFile;
-    let config = Config::from_toml_file(args.config.unwrap_or("invoicer.toml".to_string()).as_str())?;
+    let config = Config::from_toml_file(args.config.as_str())?;
     let recipient = Recipient::from_toml_file(&args.recipient_toml.unwrap())?;
 
     let mut invoice = Invoice::new(chrono::offset::Local::now().naive_local(), config, recipient);
+
+
 
     let worklogs = args.worklog.unwrap_or_default();
 
