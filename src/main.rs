@@ -1,6 +1,7 @@
 
 use invoicer::invoice::*;
 use invoicer::worklog::Worklog;
+use invoicer::helpers::*;
 
 use clap::Parser;
 
@@ -27,7 +28,7 @@ struct Arguments{
     #[arg(short = 'n', long)]
     counter: Option<u32>,
 
-    /// Optional invoice date. If no date is given, current date is used.
+    /// Optional invoice date in format %Y-m%-%d. If no date is given, current date is used.
     #[arg(short = 'd', long)]
     date: Option<String>
 }
@@ -41,13 +42,21 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         return Err(Box::new(std::io::Error::new(std::io::ErrorKind::InvalidInput, "No recipient given!")));
     }
 
-    use invoicer::helpers::FromTomlFile;
+    let date = match args.date {
+        Some(date_str) => {
+            DateTime::parse_from_str((date_str + " 00:00").as_str(), "%Y-%d-%m %H:%M").unwrap()
+        },
+        None => now()
+    };
+
     let config = Config::from_toml_file(args.config.as_str())?;
     let recipient = Recipient::from_toml_file(&args.recipient_toml.unwrap())?;
 
-    let mut invoice = Invoice::new(chrono::offset::Local::now().naive_local(), config, recipient);
+    let mut invoice = Invoice::new(date, config, recipient);
 
-
+    if args.counter.is_some() {
+        invoice.set_counter(args.counter.unwrap());
+    }
 
     let worklogs = args.worklog.unwrap_or_default();
 

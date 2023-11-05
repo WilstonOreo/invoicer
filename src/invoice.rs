@@ -227,6 +227,10 @@ impl Invoice {
         self.positions.push(position);
     }
 
+    pub fn set_counter(&mut self, counter: u32) {
+        self.counter = counter;
+    }
+
     pub fn positions(&self) -> &Vec<InvoicePosition> {
         &self.positions
     }

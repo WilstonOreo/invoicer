@@ -52,3 +52,7 @@ pub type DateTime = chrono::NaiveDateTime;
 pub fn date_to_str(d: DateTime) -> String {
     d.format("%Y/%m/%d").to_string()
 }
+
+pub fn now() -> DateTime {
+    chrono::offset::Local::now().naive_local()
+}
