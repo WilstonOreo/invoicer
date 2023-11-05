@@ -321,12 +321,31 @@ impl Invoice {
             self.begin_date = record.begin_date().min(self.begin_date);
             self.end_date = record.end_date().max(self.end_date);
 
-            let text = record.message.clone();
-            let position = InvoicePosition::from_worklog_record(&record, worklog.rate());
-            if positions.contains_key(&text) {
-                positions.insert(text, positions.get(&record.message).unwrap().clone() + position);
+            let tags = self.recipient.tags();
+
+            let mut position = InvoicePosition::from_worklog_record(&record, worklog.rate());
+
+            let mut key = String::new();
+            for tag in &record.tags() {
+                if tags.contains_key(tag) {
+                    key = tag.clone(); 
+                    position.text = self.recipient.tags().get(&key).unwrap().position_text.clone();
+                }
+            }
+
+            if key.is_empty() {
+                if let Some(default_tag_name) = self.recipient.default_tag_name() {
+                    key = default_tag_name.clone(); // ;
+                    position.text = self.recipient.tags().get(&key).unwrap().position_text.clone();
+                } else {
+                    key = record.message.clone();
+                }   
+            }
+            
+            if positions.contains_key(&key) {
+                positions.insert(key.clone(), positions.get(&key).unwrap().clone() + position);
             } else {
-                positions.insert(text, position);
+                positions.insert(key.clone(), position);
             }
 
             if self.generate_timesheet() {
@@ -390,6 +409,10 @@ impl Invoice {
 
     pub fn currency_symbol(&self) -> String {
         self.payment.currency_symbol()
+    }
+
+    pub fn calculate_value_added_tax(&self) -> bool {
+        self.config.calculate_value_added_tax()
     }
 
     pub fn filename(&self) -> String {
