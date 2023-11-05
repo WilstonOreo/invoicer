@@ -118,6 +118,20 @@ impl Recipient {
         }
         v
     }
+
+    pub fn tags(&self) -> &HashMap<String, RecipientTagInfo> {
+        &self.tags
+    }
+
+    pub fn default_tag_name(&self) -> Option<&String> {
+        for (name, tag) in &self.tags {
+            if tag.is_default {
+                return Some(name);
+            }
+        }
+
+        None
+    }
 }
 
 
