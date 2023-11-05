@@ -1,0 +1,15 @@
+[contact]
+companyname = "Eine kleine Firma"
+fullname = "Max Mustermann"
+street = "Musterstraße 12"
+email = "m@firma.com"
+zipcode = 1234
+city = "Berlin"
+country = "Germany"
+phone = "+49123456789"
+
+[invoice]
+locale = "de"
+
+[tasks]
+dev = "Software Development"

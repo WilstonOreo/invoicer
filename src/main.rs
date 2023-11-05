@@ -10,7 +10,7 @@ struct Arguments{
     #[arg(short, long)]
     worklog: Option<Vec<String>>,
     #[arg(short, long)]
-    invoicee_toml: Option<String>,
+    recipient_toml: Option<String>,
     #[arg(short = 'o', long)]
     invoice_output: Option<String>,
     #[arg(short, long)]
@@ -22,15 +22,15 @@ struct Arguments{
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     let args = Arguments::parse();
 
-    if args.invoicee_toml.is_none() {
-        return Err(Box::new(std::io::Error::new(std::io::ErrorKind::InvalidInput, "No invoicee given!")));
+    if args.recipient_toml.is_none() {
+        return Err(Box::new(std::io::Error::new(std::io::ErrorKind::InvalidInput, "No recipient given!")));
     }
 
     use invoicer::helpers::FromTomlFile;
     let config = Config::from_toml_file(args.config.unwrap_or("invoicer.toml".to_string()).as_str())?;
-    let invoicee = Invoicee::from_toml_file(&args.invoicee_toml.unwrap())?;
+    let recipient = Recipient::from_toml_file(&args.recipient_toml.unwrap())?;
 
-    let mut invoice = Invoice::new(chrono::offset::Local::now().naive_local(), config, invoicee);
+    let mut invoice = Invoice::new(chrono::offset::Local::now().naive_local(), config, recipient);
 
     let worklogs = args.worklog.unwrap_or_default();
 

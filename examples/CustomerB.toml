@@ -1,0 +1,16 @@
+[contact]
+companyname = "Customer B"
+fullname = "Homer J. Simpson"
+street = "742 Evergreen Terrace"
+email = "homer@simpson.com"
+zipcode = 12345
+city = "Springfield"
+country = "US"
+phone = "+49123456789"
+
+[invoice]
+locale = "en"
+
+[tasks]
+donuts = "Eating Donuts"
+beer = "Drinking Beer"

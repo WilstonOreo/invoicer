@@ -20,6 +20,6 @@ default_rate = 100.0
 template = "invoice.tex"
 timesheet_template = "timesheet.tex"
 number_format = "%Y%m${COUNTER}"
-filename_format = "${INVOICENUMBER}_${INVOICE}_${INVOICEE}.tex"
+filename_format = "${INVOICENUMBER}_${INVOICE}_${RECIPIENT}.tex"
 days_for_payment = 14
 calculate_value_added_tax = true

@@ -1,7 +1,7 @@
 use chrono::Datelike;
 use serde::{Deserialize, Deserializer};
 use std::io::Write;
-use crate::locale::{Currency, Locale, self};
+use crate::locale::{Currency, Locale};
 use crate::generate_tex::*;
 use crate::helpers::{ from_toml_file, DateTime, date_to_str, FromTomlFile };
 use crate::worklog::{ Worklog, WorklogRecord };
@@ -55,7 +55,7 @@ impl GenerateTexCommands for Payment {}
 
 
 #[derive(Debug, Deserialize, Iterable)]
-pub struct Invoicee {
+pub struct Recipient {
     #[serde(skip)]
     name: String,
     contact: Contact,
@@ -65,17 +65,17 @@ pub struct Invoicee {
 
 
 
-impl FromTomlFile for Invoicee {
+impl FromTomlFile for Recipient {
     fn from_toml_file(filename: &str)  -> Result<Self, Box<dyn std::error::Error>> {
-        let mut invoicee: Invoicee = crate::helpers::from_toml_file(filename)?;
-        invoicee.name = crate::helpers::name_from_file(&filename);
+        let mut recipient: Recipient = crate::helpers::from_toml_file(filename)?;
+        recipient.name = crate::helpers::name_from_file(&filename);
 
-        Ok(invoicee)
+        Ok(recipient)
     }
 }
 
 
-impl GenerateTexCommands for Invoicee {
+impl GenerateTexCommands for Recipient {
     fn generate_tex_commands<'a>(&self, w: &'a mut dyn Write, prefix: &str) -> std::io::Result<()> {
         generate_tex_command(w, format!("{prefix}name").as_str(), &self.name)?;
         self.contact.generate_tex_commands(w, prefix)?;
@@ -122,7 +122,7 @@ impl InvoiceConfig {
     default_getter!(locale, Locale);
     default_getter!(template, String, "invoice.tex");
     default_getter!(number_format, String, "%Y%m${COUNTER}");
-    default_getter!(filename_format, String, "${INVOICENUMBER}_${INVOICE}_${INVOICEE}.tex");
+    default_getter!(filename_format, String, "${INVOICENUMBER}_${INVOICE}_${RECIPIENT}.tex");
     default_getter!(days_for_payment, u32, 14_u32);
     default_getter!(calculate_value_added_tax, bool, true);
     default_getter!(timesheet_template, String);
@@ -190,7 +190,7 @@ pub struct Invoice {
     invoicer: Contact,
     payment: Payment,
     counter: u32,
-    invoicee: Invoicee,
+    recipient: Recipient,
     positions: Vec<InvoicePosition>,
     timesheet: Option<Timesheet>,
     begin_date: DateTime,
@@ -198,14 +198,14 @@ pub struct Invoice {
 }
 
 impl Invoice {
-    pub fn new(date: DateTime, config: Config, invoicee: Invoicee) -> Self {
+    pub fn new(date: DateTime, config: Config, recipient: Recipient) -> Self {
         Invoice {
             date: date,
             config: config.invoice,
             invoicer: config.contact,
             payment: config.payment,
             counter: 0,
-            invoicee: invoicee,
+            recipient: recipient,
             positions: Vec::new(),
             timesheet: None,
             begin_date: DateTime::MAX,
@@ -214,7 +214,7 @@ impl Invoice {
     }
 
     pub fn locale(&self) -> Locale {
-        match &self.invoicee.invoice.locale {
+        match &self.recipient.invoice.locale {
             Some(locale) => locale.clone(),
             None => match &self.config.locale {
                 Some(locale) => locale.clone(),
@@ -232,7 +232,7 @@ impl Invoice {
     }
 
     pub fn default_rate(&self) -> f32 {
-        self.invoicee.default_rate
+        self.recipient.default_rate
             .unwrap_or(self.payment.default_rate.unwrap_or(100.0))
     }
 
@@ -322,7 +322,7 @@ impl Invoice {
         self.config.filename_format()
             .replace("${INVOICENUMBER}", self.number().as_str())
             .replace("${INVOICE}", &self.locale().tr("invoice".to_string()))
-            .replace("${INVOICEE}", &self.invoicee.name)
+            .replace("${RECIPIENT}", &self.recipient.name)
     }
 }
 
@@ -409,8 +409,8 @@ impl GenerateTex for Invoice {
             .token("LANGUAGE", |w| {
                 self.locale().generate_tex(w)
             })
-            .token("INVOICEE_ADDRESS", |w| {            
-                self.invoicee.generate_tex_commands(w, "invoicee")
+            .token("RECIPIENT_ADDRESS", |w| {            
+                self.recipient.generate_tex_commands(w, "recipient")
             })
             .token("BILLER_ADDRESS", |w| {            
                 self.invoicer.generate_tex_commands(w, "my")
