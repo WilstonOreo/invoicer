@@ -6,8 +6,6 @@ pub fn generate_tex_command<'a>(mut w: &'a mut dyn Write, commandname: &str, con
     if let Some(string) = crate::helpers::any_to_str(content) {
         let commandname = commandname.replace("_", "");
         writeln!(&mut w, "\\newcommand{{\\{commandname}}}{{{string}}}")?;
-    } else {
-     //   writeln!(&mut w, "\\newcommand{{\\{commandname}}}{{ }}")?;
     }
     Ok(())
 }
