@@ -6,7 +6,7 @@ use crate::generate_tex::*;
 use crate::helpers::{ from_toml_file, DateTime, date_to_str, FromTomlFile };
 use crate::worklog::{ Worklog, WorklogRecord };
 
-use std::collections::{HashMap, BTreeMap};
+use std::collections::{HashMap, BTreeMap, HashSet};
 
 use struct_iterable::Iterable;
 
@@ -63,6 +63,21 @@ pub struct Recipient {
     default_rate: Option<f32>
 }
 
+impl Recipient {
+    pub fn from_tag(tag: &String) -> Result<Self, Box<dyn std::error::Error>> {
+        Self::from_toml_file(format!("tags/{tag}.toml").as_str())
+    }
+
+    pub fn from_tags(tags: &HashSet<String>) -> Vec<Self> {
+        let mut v = Vec::new();
+        for tag in tags {
+            if let Ok(recipient) = Self::from_tag(tag) {
+                v.push(recipient);
+            }
+        }
+        v
+    }
+}
 
 
 impl FromTomlFile for Recipient {
