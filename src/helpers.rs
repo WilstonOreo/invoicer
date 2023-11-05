@@ -5,7 +5,13 @@ pub fn from_toml_file<T: serde::de::DeserializeOwned>(filename: &str)  -> Result
     let mut s = String::new();
     file.read_to_string(&mut s)?;
     
-    Ok(toml::from_str(&s)?)
+    match toml::from_str(&s) {
+        Ok(result) => Ok(result),
+        Err(err) => {
+            eprintln!("Error reading {filename}: {err}");
+            Err(Box::new(std::io::Error::new(std::io::ErrorKind::InvalidInput, format!("{err}"))))
+        }
+    }
 }
 
 pub fn name_from_file(filename: &str) -> String {
