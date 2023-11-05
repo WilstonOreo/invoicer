@@ -121,10 +121,15 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         }
         invoice.generate_tex_file(tex_file.clone())?;
 
-        println!("{tex_file}: Generated invoice '{rec_name}' with {positions} positions, sum (incl. VAT) = {sum}", 
-            rec_name = recipient.name(),
+        let sum_text = if invoice.calculate_value_added_tax() {
+            format!("total (incl. VAT) = {sum}", sum = invoice.locale().format_amount(invoice.sum_with_tax()))
+        } else {
+            format!("total = {sum}", sum = invoice.locale().format_amount(invoice.sum()))
+        };
+
+        println!("{tex_file}: {positions} positions, {sum}", 
             positions = invoice.positions().len(),
-            sum = invoice.locale().format_amount(invoice.sum_with_tax()) 
+            sum = sum_text
         );
 
         counter += 1;
