@@ -10,7 +10,7 @@ use std::collections::{HashMap, BTreeMap, HashSet};
 
 use struct_iterable::Iterable;
 
-#[derive(Debug, Deserialize, Iterable)]
+#[derive(Debug, Deserialize, Iterable, Clone)]
 pub struct Contact {
     companyname: Option<String>,
     fullname: String,
@@ -26,7 +26,7 @@ pub struct Contact {
 
 impl GenerateTexCommands for Contact {}
 
-#[derive(Debug, Deserialize, Iterable)]
+#[derive(Debug, Deserialize, Iterable, Clone)]
 pub struct Payment {
     accountholder: Option<String>,
     iban: String,
@@ -54,7 +54,7 @@ impl GenerateTexCommands for Payment {}
 
 
 
-#[derive(Debug, Deserialize, Iterable)]
+#[derive(Debug, Deserialize, Iterable, Clone)]
 pub struct Recipient {
     #[serde(skip)]
     name: String,
@@ -64,6 +64,10 @@ pub struct Recipient {
 }
 
 impl Recipient {
+    pub fn name(&self) -> &String {
+        &self.name
+    }
+
     pub fn from_tag(tag: &String) -> Result<Self, Box<dyn std::error::Error>> {
         Self::from_toml_file(format!("tags/{tag}.toml").as_str())
     }
@@ -99,7 +103,7 @@ impl GenerateTexCommands for Recipient {
 }
 
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize, Clone)]
 struct InvoiceConfig {
     #[serde(deserialize_with = "locale_from_str", default)]
     locale: Option<Locale>,
@@ -145,7 +149,7 @@ impl InvoiceConfig {
 
 
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize, Clone)]
 pub struct Config {
     contact: Contact,
     payment: Payment,
