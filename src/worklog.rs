@@ -1,5 +1,5 @@
 
-use std::{collections::HashSet, hash::Hash};
+use std::collections::HashSet;
 
 use serde::{Deserialize, Deserializer};
 use crate::helpers::DateTime;
@@ -41,18 +41,18 @@ impl WorklogRecord {
         date
     }
 
-    fn net(&self) -> f32 {
+    pub fn net(&self) -> f32 {
         self.hours * self.rate.unwrap_or_default()
     }
 
-    fn tags(&self) -> HashSet<String> {
+    pub fn tags(&self) -> HashSet<String> {
         match &self.tags {
             Some(tags) => tags.clone(),
             None => HashSet::new()
         }
     }
 
-    fn has_tag(&self, tag: &str) -> bool {
+    pub fn has_tag(&self, tag: &str) -> bool {
         match &self.tags {
             Some(tags) => tags.contains(tag),
             None => false
