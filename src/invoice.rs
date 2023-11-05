@@ -17,7 +17,7 @@ pub struct Contact {
     street: String,
     zipcode: u32,
     city: String,
-    country: String,
+    country: Option<String>,
     phone: Option<String>,
     fax: Option<String>,
     email: String,

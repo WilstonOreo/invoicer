@@ -19,7 +19,10 @@
 \recipientfullname\\
 \recipientstreet\\
 \recipientzipcode~\recipientcity\\
+\ifx\recipientcountry\undefined
+\else
 \recipientcountry\\
+\fi
 \end{flushleft}
 
 \begin{longtable}{p{9.5cm}p{8cm}}
