@@ -52,6 +52,42 @@ impl Payment {
 
 impl GenerateTexCommands for Payment {}
 
+#[derive(Debug, Iterable, Clone)]
+pub struct RecipientTagInfo {
+    is_default: bool,
+    position_text: String,
+}
+
+impl<'de> Deserialize<'de> for RecipientTagInfo {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: Deserializer<'de>,
+    {
+        let s: String = Deserialize::deserialize(deserializer)?;
+        Ok(Self::from(s))
+    }
+}
+
+impl From<String> for RecipientTagInfo {
+    fn from(value: String) -> Self {
+        let value = value.trim();
+        Self {
+            is_default: value.starts_with("[default]"),
+            position_text: value.replacen("[default]", "", 1)
+        }
+    }
+}
+
+impl From<&str> for RecipientTagInfo {
+    fn from(value: &str) -> Self {
+        let value = value.trim();
+        Self {
+            is_default: value.starts_with("[default]"),
+            position_text: value.replacen("[default]", "", 1)
+        }
+    }
+}
+
 
 
 #[derive(Debug, Deserialize, Iterable, Clone)]
@@ -60,7 +96,8 @@ pub struct Recipient {
     name: String,
     contact: Contact,
     invoice: InvoiceConfig,
-    default_rate: Option<f32>
+    default_rate: Option<f32>,
+    tags: HashMap<String, RecipientTagInfo>
 }
 
 impl Recipient {
