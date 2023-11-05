@@ -1,11 +1,11 @@
 
-use serde::Deserialize;
+use serde::{Deserialize, Deserializer};
 use crate::helpers::DateTime;
 
 #[derive(Debug, Deserialize, Clone)]
 pub struct WorklogRecord {
-    #[serde(rename = "Tags")]
-    pub tags: Option<String>,
+    #[serde(rename = "Tags", deserialize_with = "deserialize_tags")]
+    pub tags: Option<Vec<String>>,
     #[serde(rename = "Start")]
     pub start: String,
     #[serde(rename = "Hours")]
@@ -14,6 +14,18 @@ pub struct WorklogRecord {
     pub rate: Option<f32>,
     #[serde(rename = "Message")]
     pub message: String
+}
+
+fn deserialize_tags<'de, D>(deserializer: D) -> Result<Option<Vec<String>>, D::Error>
+where D: Deserializer<'de> {
+    let buf = String::deserialize(deserializer);
+    if buf.is_err() {
+        return Ok(None);
+    }
+    let buf = buf.unwrap();
+
+    let s = buf.split(",").map(|ss| ss.trim().to_string() ).collect::<Vec<String>>();
+    Ok(Some(s))
 }
 
 impl WorklogRecord {
