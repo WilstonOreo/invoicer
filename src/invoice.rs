@@ -247,19 +247,19 @@ impl Invoice {
             self.begin_date = record.begin_date().min(self.begin_date);
             self.end_date = record.end_date().max(self.end_date);
 
-            if self.generate_timesheet() {
-                if self.timesheet.is_none() {
-                    self.timesheet = Some(Timesheet::new(self.config.timesheet_template(), self.locale()));
-                }
-                self.timesheet.as_mut().unwrap().add_record(record.clone());
-            }
-
             let text = record.message.clone();
             let position = InvoicePosition::from_worklog_record(&record, worklog.rate());
             if positions.contains_key(&text) {
                 positions.insert(text, positions.get(&record.message).unwrap().clone() + position);
             } else {
                 positions.insert(text, position);
+            }
+
+            if self.generate_timesheet() {
+                if self.timesheet.is_none() {
+                    self.timesheet = Some(Timesheet::new(self.config.timesheet_template(), self.locale()));
+                }
+                self.timesheet.as_mut().unwrap().add_record(record.clone());
             }
         }
 
