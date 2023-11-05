@@ -1,11 +1,13 @@
 
+use std::collections::HashSet;
+
 use serde::{Deserialize, Deserializer};
 use crate::helpers::DateTime;
 
 #[derive(Debug, Deserialize, Clone)]
 pub struct WorklogRecord {
     #[serde(rename = "Tags", deserialize_with = "deserialize_tags")]
-    pub tags: Option<Vec<String>>,
+    pub tags: Option<HashSet<String>>,
     #[serde(rename = "Start")]
     pub start: String,
     #[serde(rename = "Hours")]
@@ -16,7 +18,7 @@ pub struct WorklogRecord {
     pub message: String
 }
 
-fn deserialize_tags<'de, D>(deserializer: D) -> Result<Option<Vec<String>>, D::Error>
+fn deserialize_tags<'de, D>(deserializer: D) -> Result<Option<HashSet<String>>, D::Error>
 where D: Deserializer<'de> {
     let buf = String::deserialize(deserializer);
     if buf.is_err() {
@@ -24,7 +26,7 @@ where D: Deserializer<'de> {
     }
     let buf = buf.unwrap();
 
-    let s = buf.split(",").map(|ss| ss.trim().to_string() ).collect::<Vec<String>>();
+    let s = buf.split(",").map(|ss| ss.trim().to_string() ).collect::<HashSet<String>>();
     Ok(Some(s))
 }
 
@@ -42,6 +44,13 @@ impl WorklogRecord {
     fn net(&self) -> f32 {
         self.hours * self.rate.unwrap_or_default()
     }
+
+    fn tags(&self) -> HashSet<String> {
+        match &self.tags {
+            Some(tags) => tags.clone(),
+            None => HashSet::new()
+        }
+    }
 }
 
 
@@ -49,6 +58,7 @@ pub struct Worklog {
     begin_date: DateTime,
     end_date: DateTime,
     records: Vec<WorklogRecord>,
+    tags: HashSet<String>,
     rate: f32
 }
 
@@ -60,6 +70,7 @@ impl Worklog {
             end_date: DateTime::MIN,
             records: Vec::new(),
             rate: 100.0,
+            tags: HashSet::new(),
         }
     }
     
@@ -85,10 +96,12 @@ impl Worklog {
 
         Ok(worklog)
     }
-    
+
     pub fn add_record(&mut self, record: WorklogRecord) {
         self.begin_date = record.begin_date().min(self.begin_date);
         self.end_date = record.end_date().max(self.end_date);
+        self.tags.extend(record.tags());
+
         self.records.push(record);
     }
 
