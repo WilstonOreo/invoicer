@@ -32,7 +32,11 @@ struct Arguments{
 
     /// Optional invoice date in format %Y-m%-%d. If no date is given, current date is used.
     #[arg(short = 'd', long)]
-    date: Option<String>
+    date: Option<String>,
+
+    /// Read from stdin
+    #[clap(long, action)]
+    stdin: bool,
 }
 
 
@@ -48,10 +52,13 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         None => now()
     };
 
-
     // Create a merged worklog from all input worklogs
     // 1) Try to read worklog from stdin
-    let mut worklog = Worklog::new(); // Worklog::from_csv(std::io::stdin()).unwrap_or_default();
+    let mut worklog = if args.stdin {
+        Worklog::from_csv(std::io::stdin()).unwrap_or_default() 
+    } else { 
+        Worklog::new() 
+    };
 
     // 2) Try to read worklog from given commandline arguments
     let worklog_csvs = args.worklog.unwrap_or_default();
