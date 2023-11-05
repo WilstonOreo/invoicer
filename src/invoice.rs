@@ -213,7 +213,7 @@ impl Config {
     }
 }
 
-use std::ops::Add;
+use std::ops::{Add, AddAssign};
 
 
 pub struct Timesheet {
@@ -341,13 +341,9 @@ impl Invoice {
                     key = record.message.clone();
                 }   
             }
-            
-            if positions.contains_key(&key) {
-                positions.insert(key.clone(), positions.get(&key).unwrap().clone() + position);
-            } else {
-                positions.insert(key.clone(), position);
-            }
 
+            positions.entry(key).and_modify(|k| *k += position.clone()).or_insert(position);
+            
             if self.generate_timesheet() {
                 if self.timesheet.is_none() {
                     self.timesheet = Some(Timesheet::new(self.config.timesheet_template(), self.locale()));
@@ -454,22 +450,21 @@ pub struct InvoicePosition {
     unit: String 
 }
 
-impl Add for InvoicePosition {
-    type Output = Self; 
+impl AddAssign for InvoicePosition {
 
-    fn add(self, other: Self) -> Self {
+    fn add_assign(&mut self, other: Self) {
         assert!(self.unit == other.unit && self.text == other.text);
 
         let sum = self.amount + other.amount; 
-        InvoicePosition {
-            text: self.text, 
+        *self = InvoicePosition {
+            text: self.text.clone(), 
             amount: sum,
             price_per_item: (self.amount * self.price_per_item + other.amount * other.price_per_item) / sum,
-            unit: self.unit
+            unit: self.unit.clone()
         }
-
     }
 }
+
 
 
 impl InvoicePosition {
