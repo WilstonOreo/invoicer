@@ -213,7 +213,7 @@ impl Config {
     }
 }
 
-use std::ops::{Add, AddAssign};
+use std::ops::AddAssign;
 
 
 pub struct Timesheet {
@@ -425,16 +425,17 @@ pub struct InvoiceDetails {
     number: String,
     periodbegin: String,
     periodend: String,
+    daysforpayment: u32,
 }
 
 impl InvoiceDetails {
-
     pub fn from_invoice(invoice: &Invoice) -> Self {
         Self {
             date: date_to_str(invoice.date),
             number: invoice.number(),
             periodbegin: date_to_str(invoice.begin_date()),
             periodend: date_to_str(invoice.end_date()),
+            daysforpayment: invoice.config.days_for_payment()
         } 
     }
 }

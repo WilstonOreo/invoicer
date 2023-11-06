@@ -15,6 +15,7 @@ date = "Datum"
 invoice = "Rechnung"
 invoicenumber = "Rechnungsnummer"
 timeforpayment = "Zahlungsziel"
+days = "Tage"
 performanceperiod = "Leistungszeitraum"
 salutationtext = """
     Sehr geehrte Damen und Herren,\\\\
