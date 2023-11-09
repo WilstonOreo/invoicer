@@ -105,7 +105,6 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
         invoice.set_counter(counter);
             
-        use invoicer::generate_tex::GenerateTex;
         let tex_file = match args.invoice_output {
             Some(ref output) => if recipients.len() > 1 { format!("{output}{counter}.tex") } else { format!("{output}.tex") },
             None => invoice.filename()
@@ -114,8 +113,11 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         invoice.add_worklog(&worklog);
 
         if invoice.positions().is_empty() {
-            eprintln!("{tex_file}: Warning: The generated invoice contains no positions, no invoice generated!");
+            eprintln!("{tex_file}: Warning: The generated invoice contains no positions, no invoice will be generated!");
+            continue;
         }
+
+        use invoicer::generate_tex::GenerateTex;
         invoice.generate_tex_file(tex_file.clone())?;
 
         let sum_text = if invoice.calculate_value_added_tax() {
