@@ -159,6 +159,7 @@ struct InvoiceConfig {
     #[serde(deserialize_with = "locale_from_str", default)]
     locale: Option<Locale>,
     template: Option<String>,
+    date_format: Option<String>,
     number_format: Option<String>,
     filename_format: Option<String>,
     days_for_payment: Option<u32>,
@@ -191,6 +192,7 @@ macro_rules! default_getter {
 impl InvoiceConfig {
     default_getter!(locale, Locale);
     default_getter!(template, String, "invoice.tex");
+    default_getter!(date_format, String, "%Y/%m/%d");
     default_getter!(number_format, String, "%Y%m${COUNTER}");
     default_getter!(filename_format, String, "${INVOICENUMBER}_${INVOICE}_${RECIPIENT}.tex");
     default_getter!(days_for_payment, u32, 14_u32);
@@ -430,11 +432,13 @@ pub struct InvoiceDetails {
 
 impl InvoiceDetails {
     pub fn from_invoice(invoice: &Invoice) -> Self {
+        let date_format = invoice.config.date_format();
+
         Self {
-            date: date_to_str(invoice.date),
+            date: date_to_str(invoice.date, &date_format),
             number: invoice.number(),
-            periodbegin: date_to_str(invoice.begin_date()),
-            periodend: date_to_str(invoice.end_date()),
+            periodbegin: date_to_str(invoice.begin_date(), &date_format),
+            periodend: date_to_str(invoice.end_date(), &date_format),
             daysforpayment: invoice.config.days_for_payment()
         } 
     }

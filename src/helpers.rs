@@ -55,8 +55,8 @@ where P: AsRef<std::path::Path>, {
 
 pub type DateTime = chrono::NaiveDateTime;
 
-pub fn date_to_str(d: DateTime) -> String {
-    d.format("%Y/%m/%d").to_string()
+pub fn date_to_str(d: DateTime, format_str: &String) -> String {
+    d.format(format_str.as_str()).to_string()
 }
 
 pub fn now() -> DateTime {
