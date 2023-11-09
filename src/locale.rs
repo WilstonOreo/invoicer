@@ -1,7 +1,6 @@
 
 use common_macros::hash_map;
 use lazy_static::lazy_static;
-use std::io::Read;
 
 use std::collections::HashMap;
 use serde::Deserialize;

@@ -1,6 +1,3 @@
-
-use std::sync::mpsc::RecvError;
-
 use invoicer::invoice::*;
 use invoicer::worklog::Worklog;
 use invoicer::helpers::*;
