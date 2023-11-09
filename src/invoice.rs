@@ -1,6 +1,7 @@
 use chrono::Datelike;
 use serde::{Deserialize, Deserializer};
 use std::io::Write;
+use crate::invoicer::{Config, Invoicer};
 use crate::locale::{Currency, Locale};
 use crate::generate_tex::*;
 use crate::helpers::{ from_toml_file, DateTime, date_to_str, FromTomlFile };
@@ -155,7 +156,7 @@ impl GenerateTexCommands for Recipient {
 
 
 #[derive(Debug, Deserialize, Clone)]
-struct InvoiceConfig {
+pub struct InvoiceConfig {
     #[serde(deserialize_with = "locale_from_str", default)]
     locale: Option<Locale>,
     template: Option<String>,
@@ -202,18 +203,6 @@ impl InvoiceConfig {
 
 
 
-#[derive(Debug, Deserialize, Clone)]
-pub struct Config {
-    contact: Contact,
-    payment: Payment,
-    invoice: InvoiceConfig,
-}
-
-impl Config {
-    pub fn from_toml_file(filename: &str) -> Result<Self, Box<dyn std::error::Error>> {
-        from_toml_file::<Self>(filename)
-    }
-}
 
 use std::ops::AddAssign;
 
@@ -256,11 +245,9 @@ impl GenerateTex for Timesheet {
     }
 }
 
-pub struct Invoice {
-    date: DateTime,
+pub struct Invoice<'a> {
+    invoicer: &'a Invoicer,
     config: InvoiceConfig,
-    invoicer: Contact,
-    payment: Payment,
     counter: u32,
     recipient: Recipient,
     positions: Vec<InvoicePosition>,
@@ -269,14 +256,12 @@ pub struct Invoice {
     end_date: DateTime,
 }
 
-impl Invoice {
-    pub fn new(date: DateTime, config: Config, recipient: Recipient) -> Self {
+impl<'a> Invoice<'a> {
+    pub fn new(invoicer: &'a Invoicer, recipient: Recipient) -> Self {
         Invoice {
-            date: date,
-            config: config.invoice,
-            invoicer: config.contact,
-            payment: config.payment,
+            invoicer: invoicer,
             counter: 0,
+            config: invoicer.config().invoice().clone(),
             recipient: recipient,
             positions: Vec::new(),
             timesheet: None,
@@ -294,6 +279,10 @@ impl Invoice {
             }
         }
     }
+
+    pub fn date(&self) -> DateTime {
+        self.invoicer.date()
+    }
     
     pub fn add_position(&mut self, position: InvoicePosition) {
         self.positions.push(position);
@@ -309,7 +298,7 @@ impl Invoice {
 
     pub fn default_rate(&self) -> f32 {
         self.recipient.default_rate
-            .unwrap_or(self.payment.default_rate.unwrap_or(100.0))
+            .unwrap_or(self.payment().default_rate.unwrap_or(100.0))
     }
 
     pub fn generate_timesheet(&self) -> bool {
@@ -365,7 +354,7 @@ impl Invoice {
     }
 
     pub fn number(&self) -> String {
-        let date = self.date.date();
+        let date = self.invoicer.date();
         self.config.number_format()
             .replace("%Y", format!("{:04}", date.year()).as_str())
             .replace("%m", format!("{:02}", date.month()).as_str())
@@ -397,16 +386,20 @@ impl Invoice {
         self.sum_with_tax() - self.sum() 
     }
 
+    pub fn payment(&self) -> &Payment {
+        &self.invoicer.config().payment()
+    }
+
     pub fn tax_rate(&self) -> f32 {
-        self.payment.tax_rate
+        self.payment().tax_rate
     }
 
     pub fn currency(&self) -> Currency {
-        self.payment.currency()
+        self.payment().currency()
     }
 
     pub fn currency_symbol(&self) -> String {
-        self.payment.currency_symbol()
+        self.payment().currency_symbol()
     }
 
     pub fn calculate_value_added_tax(&self) -> bool {
@@ -422,7 +415,7 @@ impl Invoice {
 }
 
 #[derive(Debug, Iterable)]
-pub struct InvoiceDetails {
+struct InvoiceDetails {
     date: String,
     number: String,
     periodbegin: String,
@@ -431,11 +424,11 @@ pub struct InvoiceDetails {
 }
 
 impl InvoiceDetails {
-    pub fn from_invoice(invoice: &Invoice) -> Self {
+    pub fn from_invoice<'a>(invoice: &'a Invoice) -> Self {
         let date_format = invoice.config.date_format();
 
         Self {
-            date: date_to_str(invoice.date, &date_format),
+            date: date_to_str(invoice.date(), &date_format),
             number: invoice.number(),
             periodbegin: date_to_str(invoice.begin_date(), &date_format),
             periodend: date_to_str(invoice.end_date(), &date_format),
@@ -498,8 +491,8 @@ impl InvoicePosition {
 
 
 
-impl GenerateTex for Invoice {
-    fn generate_tex<'a>(&self, w: &'a mut dyn Write) -> std::io::Result<()> {
+impl<'a> GenerateTex for Invoice<'a> {
+    fn generate_tex(&self, w: &mut dyn Write) -> std::io::Result<()> {
         let mut template = TexTemplate::new(format!("templates/{}", &self.config.template())); 
         
         template
@@ -510,10 +503,10 @@ impl GenerateTex for Invoice {
                 self.recipient.generate_tex_commands(w, "recipient")
             })
             .token("BILLER_ADDRESS", |w| {            
-                self.invoicer.generate_tex_commands(w, "my")
+                self.invoicer.config().contact().generate_tex_commands(w, "my")
             })
             .token("PAYMENT_DETAILS", |w| {
-                self.payment.generate_tex_commands(w, "my")
+                self.payment().generate_tex_commands(w, "my")
             })
             .token("INVOICE_DETAILS", |w| {
                 let details = InvoiceDetails::from_invoice(&self);

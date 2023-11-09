@@ -1,4 +1,5 @@
-use invoicer::invoice::*;
+use invoicer::{invoice::*, worklog};
+use invoicer::invoicer::{Invoicer, Config};
 use invoicer::worklog::Worklog;
 use invoicer::helpers::*;
 
@@ -9,11 +10,11 @@ use clap::Parser;
 struct Arguments{
     /// Worklog CSV file
     #[arg(short, long)]
-    worklog: Option<Vec<String>>,
+    worklog: Vec<String>,
 
     /// Recipient TOML file (optional)
     #[arg(short, long)]
-    recipient_toml: Option<Vec<String>>,
+    recipient_toml: Vec<String>,
 
     /// Optional latex output file
     #[arg(short = 'o', long)]
@@ -49,90 +50,33 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         None => now()
     };
 
+    let mut invoicer = Invoicer::new(config, Some(date), args.counter);
+
     // Create a merged worklog from all input worklogs
-    // 1) Try to read worklog from stdin
-    let mut worklog = if args.stdin {
-        Worklog::from_csv(std::io::stdin()).unwrap_or_default() 
-    } else { 
-        Worklog::new() 
-    };
+    // 1) Try to read worklog from stdin    
+    if args.stdin {
+        match Worklog::from_csv(std::io::stdin()) {
+            Ok(worklog) => invoicer.append_worklog(&worklog),
+            Err(e) => eprintln!("Could not read worklog CSV from stdin: {e}"),
+        }
+    }
 
     // 2) Try to read worklog from given commandline arguments
-    let worklog_csvs = args.worklog.unwrap_or_default();
+    let worklog_csvs = args.worklog;
     for worklog_csv in worklog_csvs {
-        match Worklog::from_csv_file(&worklog_csv) {
-            Ok(wl) => {
-                worklog.append(&wl);
-            }
-            Err(e) => eprintln!("Error loading worklog {worklog_csv}: {e}")
-        }
+        invoicer.append_worklog_from_csv_file(&worklog_csv)?;
+    } 
+
+    // 3) Create list of recipients from toml files
+    for recipient_toml in args.recipient_toml {
+        invoicer.add_recipient_from_toml_file(&recipient_toml)?;
     }
 
-    // Create list of recipients from different inputs
-    let mut recipients = Vec::new();
-    if args.recipient_toml.is_some() {
-        for recipient_toml in args.recipient_toml.unwrap() {
-            match Recipient::from_toml_file(&recipient_toml) {
-                Ok(recipient) => recipients.push(recipient),
-                Err(e) => eprintln!("Could not load recipient '{}': {e}!", recipient_toml),
-            }
-        }
+    // 4) Try to fetch recipients from worklogs
+    if !invoicer.has_recipients() {
+        // If no recipient is given as command-line argument, try to fetch recipients from worklog
+        invoicer.add_recipients_from_worklog();
     }
 
-    println!("Worklog tags: {:?}", worklog.tags());
-    
-    if recipients.is_empty() {
-        // If no recipient is given as command-line argument, try to fetch recipients from work logs
-        recipients = Recipient::from_tags(worklog.tags());
-    }
-
-    println!("Recipients: {:?}", recipients.iter().map(|r| r.name().clone()).collect::<Vec<String>>());
-
-
-    // Return if no recipients are given
-    if !recipients.is_empty() {
-    } else {
-        return Err(Box::new(std::io::Error::new(std::io::ErrorKind::InvalidInput, "No recipient given!")));
-    }
-
-    let mut counter = args.counter.unwrap_or(1);
-
-    // Create an invoice for each recipient
-    for recipient in &recipients {
-        let mut worklog = worklog.from_records_with_tag(recipient.name());
-        let mut invoice = Invoice::new(date, config.clone(), recipient.clone());
-        worklog.set_rate(invoice.default_rate());
-
-        invoice.set_counter(counter);
-            
-        let tex_file = match args.invoice_output {
-            Some(ref output) => if recipients.len() > 1 { format!("{output}{counter}.tex") } else { format!("{output}.tex") },
-            None => invoice.filename()
-        };
-        
-        invoice.add_worklog(&worklog);
-
-        if invoice.positions().is_empty() {
-            eprintln!("{tex_file}: Warning: The generated invoice contains no positions, no invoice will be generated!");
-            continue;
-        }
-
-        use invoicer::generate_tex::GenerateTex;
-        invoice.generate_tex_file(tex_file.clone())?;
-
-        let sum_text = if invoice.calculate_value_added_tax() {
-            format!("total (incl. VAT) = {sum}", sum = invoice.locale().format_amount(invoice.sum_with_tax()))
-        } else {
-            format!("total = {sum}", sum = invoice.locale().format_amount(invoice.sum()))
-        };
-
-        println!("{tex_file}: {positions} positions, {sum}", 
-            positions = invoice.positions().len(),
-            sum = sum_text
-        );
-
-        counter += 1;
-    }
-
-    Ok(())
+    invoicer.generate()
 }
