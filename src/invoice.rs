@@ -337,7 +337,7 @@ impl Invoice {
 
             if key.is_empty() {
                 if let Some(default_tag_name) = self.recipient.default_tag_name() {
-                    key = default_tag_name.clone(); // ;
+                    key = default_tag_name.clone();
                     position.text = self.recipient.tags().get(&key).unwrap().position_text.clone();
                 } else {
                     key = record.message.clone();
