@@ -74,10 +74,10 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         for recipient_toml in args.recipient_toml.unwrap() {
             match Recipient::from_toml_file(&recipient_toml) {
                 Ok(recipient) => recipients.push(recipient),
-                Err(e) => eprintln!("Could not load recipient '{}'!", recipient_toml),
+                Err(e) => eprintln!("Could not load recipient '{}': {e}!", recipient_toml),
             }
         }
-    } 
+    }
 
     println!("Worklog tags: {:?}", worklog.tags());
     
