@@ -1,8 +1,8 @@
 [folders]
 config = "${HOME}/.invoicer"
 tags = "${CONFIG_FOLDER}/tags"
-template = "${CONFIG_FOLDER}/templates"
-invoices = "${HOME}/Documents/invoices/%Y"
+templates = "${CONFIG_FOLDER}/templates"
+invoices = "${HOME}/Documents/invoices/${YEAR}"
 
 [contact]
 fullname = "John Doe"

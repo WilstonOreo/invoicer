@@ -1,20 +1,39 @@
 use serde::Deserialize;
 use toml::value::Date;
 
-use crate::{worklog::Worklog, invoice::{Recipient, Contact, Payment, InvoiceConfig, Invoice}, helpers::{FromTomlFile, DateTime, now}, generate_tex::GenerateTex};
+use crate::{worklog::Worklog, invoice::{Recipient, Contact, Payment, InvoiceConfig, Invoice}, helpers::{FromTomlFile, DateTime, now, home_dir}, generate_tex::GenerateTex};
 
 
 #[derive(Debug, Deserialize, Clone)]
-pub struct Folders {
-    config: Option<String>,
-    tags: Option<String>,
-    templates: Option<String>,
-    invoices: Option<String>
+struct Folders {
+    config: String,
+    tags: String,
+    templates: String,
+    invoices: String
+}
+
+/*impl Folders {
+    fn format_str(&self, s: &String) -> String {
+        s.replace("${HOME}", &home_dir())
+        .replace("${CONFIG_FOLDER}", &self.config)
+    }
+}*/
+
+impl Default for Folders {
+    fn default() -> Self {
+        Self {
+            config: String::from("${HOME}/.invoicer"),
+            tags: String::from("${CONFIG_FOLDER}/tags"),
+            templates: String::from("${CONFIG_FOLDER}/templates"),
+            invoices: String::from("${HOME}/Documents/invoices/${YEAR}")
+        }
+    }
 }
 
 
 #[derive(Debug, Deserialize, Clone)]
 pub struct Config {
+    #[serde(default)]
     folders: Folders,
     contact: Contact,
     payment: Payment,
@@ -28,10 +47,6 @@ impl Config {
 
     pub fn contact(&self) -> &Contact {
         &self.contact
-    }
-
-    pub fn folders(&self) -> &Folders {
-        &self.folders
     }
 
     pub fn payment(&self) -> &Payment {
