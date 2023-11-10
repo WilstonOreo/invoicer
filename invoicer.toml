@@ -1,7 +1,7 @@
-[folders]
-config = "${HOME}/.invoicer"
-tags = "${CONFIG_FOLDER}/tags"
-templates = "${CONFIG_FOLDER}/templates"
+[directories]
+config = "${WORKING_DIR}"
+tags = "${CONFIG_DIR}/tags"
+templates = "${CONFIG_DIR}/templates"
 invoices = "${HOME}/Documents/invoices/${YEAR}"
 
 [contact]
