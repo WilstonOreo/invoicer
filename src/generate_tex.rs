@@ -44,6 +44,8 @@ pub trait GenerateTex {
         let mut f = std::fs::File::create(path)?;
         self.generate_tex(&mut f)
     }
+
+    fn template_dir(&self) -> PathBuf { PathBuf::from(".") }
 }
 
 pub struct TexTemplate<'a> {
