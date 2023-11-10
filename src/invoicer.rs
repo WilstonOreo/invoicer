@@ -161,8 +161,11 @@ impl Invoicer {
 
 
     pub fn generate(&self) -> Result<(), Box<dyn std::error::Error>> {
-        println!("Worklog tags: {:?}", self.worklog.tags());
-        println!("Recipients: {:?}", self.recipients.iter().map(|r| r.name().clone()).collect::<Vec<String>>());
+
+        println!("{}", self);
+        
+        self.mkdir();
+
 
         // Return if no recipients are given
         if self.recipients.is_empty() {
@@ -180,7 +183,12 @@ impl Invoicer {
             invoice.set_counter(counter);
             
             let tex_file: String = Path::new(&self.invoice_dir()).join(invoice.filename()).into_os_string().into_string().unwrap();
-
+            
+            /*match invoice.output_file() {
+                Some(ref output) => if self.recipients.len() > 1 { format!("{output}{counter}.tex") } else { format!("{output}.tex") },
+                None => invoice.filename()
+            };*/ // TODO: Output from command line
+        
             invoice.add_worklog(&worklog);
 
             if invoice.positions().is_empty() {
@@ -238,5 +246,21 @@ impl HasDirectories for Invoicer {
         self.config().directories.invoice_dir()
             .to_string()
             .replace("${YEAR}", &self.date().year().to_string()).into()
+    }
+}
+
+impl Display for Invoicer {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        writeln!(f, "Invoicer:")?;
+        writeln!(f, "\tDirectories:")?;
+        writeln!(f, "\t\tConfig:\t{:?}", self.config_dir())?;
+        writeln!(f, "\t\tTemplates:\t{:?}", self.template_dir())?;
+        writeln!(f, "\t\tTags:\t{:?}", self.tag_dir())?;
+        writeln!(f, "\t\tLocales:\t{:?}", self.locale_dir())?;
+
+        println!("Worklog tags: {:?}", self.worklog.tags());
+        println!("Recipients: {:?}", self.recipients.iter().map(|r| r.name().clone()).collect::<Vec<String>>());
+
+        Ok(())
     }
 }
