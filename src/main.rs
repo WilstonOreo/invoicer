@@ -1,6 +1,5 @@
 use std::path::PathBuf;
 
-use invoicer::{invoice::*, worklog};
 use invoicer::invoicer::{Invoicer, Config};
 use invoicer::worklog::Worklog;
 use invoicer::helpers::*;

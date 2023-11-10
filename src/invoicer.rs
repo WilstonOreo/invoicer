@@ -18,11 +18,12 @@ pub trait HasDirectories {
 
     fn format_path(&self, s: &String) -> String { s.clone() }
 
-    fn mkdir(&self) {
-        std::fs::create_dir_all(&self.config_dir());
-        std::fs::create_dir_all(&self.tag_dir());
-        std::fs::create_dir_all(&self.template_dir());
-        std::fs::create_dir_all(&self.invoice_dir());
+    fn mkdir(&self) -> Result<(), std::io::Error> {
+        std::fs::create_dir_all(&self.config_dir())?;
+        std::fs::create_dir_all(&self.tag_dir())?;
+        std::fs::create_dir_all(&self.template_dir())?;
+        std::fs::create_dir_all(&self.invoice_dir())?;
+        Ok(())
     }
 }
 
@@ -164,7 +165,7 @@ impl Invoicer {
 
         println!("{}", self);
         
-        self.mkdir();
+        self.mkdir()?;
 
 
         // Return if no recipients are given

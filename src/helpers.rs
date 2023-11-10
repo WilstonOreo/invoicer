@@ -1,4 +1,4 @@
-use std::{io::Read, fs::File, path::{Path, PathBuf, self}};
+use std::{io::Read, fs::File, path::{Path, PathBuf}};
 
 pub trait FilePath: AsRef<std::path::Path> + AsRef<std::ffi::OsStr> {
 

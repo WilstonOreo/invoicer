@@ -2,10 +2,10 @@ use chrono::Datelike;
 use serde::{Deserialize, Deserializer};
 use std::io::Write;
 use std::path::{PathBuf, Path};
-use crate::invoicer::{Config, Invoicer, HasDirectories};
+use crate::invoicer::{ Invoicer, HasDirectories};
 use crate::locale::{Currency, Locale};
 use crate::generate_tex::*;
-use crate::helpers::{ from_toml_file, DateTime, date_to_str, FromTomlFile, FilePath };
+use crate::helpers::{ DateTime, date_to_str, FromTomlFile, FilePath };
 use crate::worklog::{ Worklog, WorklogRecord };
 
 use std::collections::{HashMap, BTreeMap, HashSet};
