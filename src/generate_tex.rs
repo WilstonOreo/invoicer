@@ -1,6 +1,6 @@
 
 use struct_iterable::Iterable;
-use std::{io::Write, collections::HashMap};
+use std::{io::Write, collections::HashMap, path::PathBuf};
 
 pub fn generate_tex_command<'a>(mut w: &'a mut dyn Write, commandname: &str, content: &dyn std::any::Any) -> std::io::Result<()> {   
     if let Some(string) = crate::helpers::any_to_str(content) {
@@ -26,8 +26,8 @@ pub trait GenerateTex {
     fn generate_tex<'a>(&self, w: &'a mut dyn Write) -> std::io::Result<()>;
 
     fn inline_input<'a>(&self, filename: &str, w: &'a mut dyn Write) -> std::io::Result<()> {
-        let filename = format!("templates/{}.tex", filename);
-        match crate::helpers::read_lines(&filename) {
+        let path = self.template_dir().join(format!("{}.tex", filename));
+        match crate::helpers::read_lines(path) {
             Ok(lines) => 
                 for line in lines {
                     writeln!(w, "{}", line.unwrap())?;

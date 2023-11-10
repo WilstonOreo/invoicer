@@ -1,3 +1,5 @@
+use std::path::PathBuf;
+
 use invoicer::{invoice::*, worklog};
 use invoicer::invoicer::{Invoicer, Config};
 use invoicer::worklog::Worklog;
@@ -41,7 +43,7 @@ struct Arguments{
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     let args = Arguments::parse();
-    let config = Config::from_toml_file(args.config.as_str())?;
+    let config = Config::from_toml_file::<PathBuf>(args.config.into())?;
 
     let date = match args.date {
         Some(date_str) => {
@@ -69,7 +71,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     // 3) Create list of recipients from toml files
     for recipient_toml in args.recipient_toml {
-        invoicer.add_recipient_from_toml_file(&recipient_toml)?;
+        invoicer.add_recipient_from_toml_file::<PathBuf>(recipient_toml.into())?;
     }
 
     // 4) Try to fetch recipients from worklogs

@@ -1,48 +1,86 @@
+use std::{path::{PathBuf, Path}, fmt::Display};
+
+use chrono::Datelike;
 use serde::Deserialize;
-use toml::value::Date;
 
-use crate::{worklog::Worklog, invoice::{Recipient, Contact, Payment, InvoiceConfig, Invoice}, helpers::{FromTomlFile, DateTime, now, home_dir}, generate_tex::GenerateTex};
+use crate::{worklog::Worklog, invoice::*, helpers::*, generate_tex::GenerateTex};
 
+pub trait HasDirectories {
+    fn config_dir(&self) -> PathBuf;
+    fn tag_dir(&self) -> PathBuf;
+    fn template_dir(&self) -> PathBuf;
+    fn invoice_dir(&self) -> PathBuf;
+    fn locale_dir(&self) -> PathBuf;
 
-#[derive(Debug, Deserialize, Clone)]
-struct Folders {
-    config: String,
-    tags: String,
-    templates: String,
-    invoices: String
+    fn working_dir(&self) -> PathBuf {
+        std::env::current_dir().unwrap()
+    }
+
+    fn format_path(&self, s: &String) -> String { s.clone() }
+
+    fn mkdir(&self) {
+        std::fs::create_dir_all(&self.config_dir());
+        std::fs::create_dir_all(&self.tag_dir());
+        std::fs::create_dir_all(&self.template_dir());
+        std::fs::create_dir_all(&self.invoice_dir());
+    }
 }
 
-/*impl Folders {
-    fn format_str(&self, s: &String) -> String {
+
+#[derive(Debug, Deserialize, Clone, Default)]
+struct Directories {
+    config: Option<String>,
+    tags: Option<String>,
+    templates: Option<String>,
+    invoices: Option<String>,
+    locales: Option<String>,
+}
+
+
+impl HasDirectories for Directories {
+    fn config_dir(&self) -> PathBuf {
+        self.config.as_ref().unwrap_or(&String::from("${HOME}/.invoicer"))
+        .replace("${HOME}", &home_dir())
+        .replace("${WORKING_DIR}", &self.working_dir().to_string()).into()
+    }
+
+    fn tag_dir(&self) -> PathBuf {
+        self.format_path(&self.tags.as_ref().unwrap_or(&String::from("${CONFIG_DIR}/tags"))).into()
+    }
+
+    fn template_dir(&self) -> PathBuf {
+        self.format_path(&self.templates.as_ref().unwrap_or(&String::from("${CONFIG_DIR}/templates"))).into()
+    }
+
+    fn invoice_dir(&self) -> PathBuf {
+        self.format_path(&self.invoices.as_ref().unwrap_or(&String::from("${HOME}/Documents/invoices/${YEAR}"))).into()
+    }
+
+    fn locale_dir(&self) -> PathBuf {
+        self.format_path(&self.locales.as_ref().unwrap_or(&String::from("${CONFIG_DIR}/locales"))).into()
+    }
+
+    fn format_path(&self, s: &String) -> String {
         s.replace("${HOME}", &home_dir())
-        .replace("${CONFIG_FOLDER}", &self.config)
-    }
-}*/
-
-impl Default for Folders {
-    fn default() -> Self {
-        Self {
-            config: String::from("${HOME}/.invoicer"),
-            tags: String::from("${CONFIG_FOLDER}/tags"),
-            templates: String::from("${CONFIG_FOLDER}/templates"),
-            invoices: String::from("${HOME}/Documents/invoices/${YEAR}")
-        }
+            .replace("${WORKING_DIR}", &std::env::current_dir().unwrap().into_os_string().into_string().unwrap())
+            .replace("${CONFIG_DIR}", &self.config_dir().into_os_string().into_string().unwrap())
     }
 }
+
 
 
 #[derive(Debug, Deserialize, Clone)]
 pub struct Config {
     #[serde(default)]
-    folders: Folders,
+    directories: Directories,
     contact: Contact,
     payment: Payment,
     invoice: InvoiceConfig,
 }
 
 impl Config {
-    pub fn from_toml_file(filename: &str) -> Result<Self, Box<dyn std::error::Error>> {
-        crate::helpers::from_toml_file::<Self>(filename)
+    pub fn from_toml_file<P: FilePath>(filename: P) -> Result<Self, Box<dyn std::error::Error>> {
+        crate::helpers::from_toml_file::<Self, P>(filename)
     }
 
     pub fn contact(&self) -> &Contact {
@@ -103,18 +141,19 @@ impl Invoicer {
     }
 
     pub fn add_recipients_from_worklog(&mut self) {
-        let mut recipients = Recipient::from_tags(self.worklog.tags());
+        let mut recipients = Recipient::from_tags(self.worklog.tags(), &self.tag_dir());
         self.recipients.append(&mut recipients);
     }
 
-    pub fn add_recipient_from_toml_file(&mut self, toml: &str) -> Result<(), Box<dyn std::error::Error>> {
-        match Recipient::from_toml_file(&toml) {
+    pub fn add_recipient_from_toml_file<P: FilePath>(&mut self, toml: P) -> Result<(), Box<dyn std::error::Error>> {
+        let s = toml.to_string();
+        match Recipient::from_toml_file(toml) {
             Ok(recipient) => {
                 self.recipients.push(recipient);
                 Ok(())
             },
             Err(e) => {
-                eprintln!("Could not load recipient '{}': {e}!", toml);
+                eprintln!("Could not load recipient '{}': {e}!", s);
                 Err(e)
             },
         }
@@ -140,13 +179,8 @@ impl Invoicer {
 
             invoice.set_counter(counter);
             
-            let tex_file = invoice.filename();
-            
-            /*match invoice.output_file() {
-                Some(ref output) => if self.recipients.len() > 1 { format!("{output}{counter}.tex") } else { format!("{output}.tex") },
-                None => invoice.filename()
-            };*/ // TODO: Output from command line
-        
+            let tex_file: String = Path::new(&self.invoice_dir()).join(invoice.filename()).into_os_string().into_string().unwrap();
+
             invoice.add_worklog(&worklog);
 
             if invoice.positions().is_empty() {
@@ -179,5 +213,30 @@ impl Invoicer {
 
     pub fn date(&self) -> DateTime {
         self.date
+    }
+}
+
+
+impl HasDirectories for Invoicer {
+    fn config_dir(&self) -> PathBuf {
+        self.config().directories.config_dir()
+    }
+
+    fn tag_dir(&self) -> PathBuf {
+        self.config().directories.tag_dir()
+    }
+
+    fn template_dir(&self) -> PathBuf {
+        self.config().directories.template_dir()
+    }
+
+    fn locale_dir(&self) -> PathBuf {
+        self.config().directories.locale_dir()
+    }
+
+    fn invoice_dir(&self) -> PathBuf {
+        self.config().directories.invoice_dir()
+            .to_string()
+            .replace("${YEAR}", &self.date().year().to_string()).into()
     }
 }

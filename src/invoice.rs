@@ -1,10 +1,11 @@
 use chrono::Datelike;
 use serde::{Deserialize, Deserializer};
 use std::io::Write;
-use crate::invoicer::{Config, Invoicer};
+use std::path::{PathBuf, Path};
+use crate::invoicer::{Config, Invoicer, HasDirectories};
 use crate::locale::{Currency, Locale};
 use crate::generate_tex::*;
-use crate::helpers::{ from_toml_file, DateTime, date_to_str, FromTomlFile };
+use crate::helpers::{ from_toml_file, DateTime, date_to_str, FromTomlFile, FilePath };
 use crate::worklog::{ Worklog, WorklogRecord };
 
 use std::collections::{HashMap, BTreeMap, HashSet};
@@ -106,14 +107,14 @@ impl Recipient {
         &self.name
     }
 
-    pub fn from_tag(tag: &String) -> Result<Self, Box<dyn std::error::Error>> {
-        Self::from_toml_file(format!("tags/{tag}.toml").as_str())
+    pub fn from_tag(tag: &String, tag_dir: &Path) -> Result<Self, Box<dyn std::error::Error>> {
+        Self::from_toml_file(Path::new(tag_dir).join(format!("{tag}.toml")))
     }
 
-    pub fn from_tags(tags: &HashSet<String>) -> Vec<Self> {
+    pub fn from_tags(tags: &HashSet<String>, tag_dir: &Path) -> Vec<Self> {
         let mut v = Vec::new();
         for tag in tags {
-            if let Ok(recipient) = Self::from_tag(tag) {
+            if let Ok(recipient) = Self::from_tag(tag, tag_dir) {
                 v.push(recipient);
             }
         }
@@ -137,9 +138,10 @@ impl Recipient {
 
 
 impl FromTomlFile for Recipient {
-    fn from_toml_file(filename: &str)  -> Result<Self, Box<dyn std::error::Error>> {
-        let mut recipient: Recipient = crate::helpers::from_toml_file(filename)?;
-        recipient.name = crate::helpers::name_from_file(&filename);
+    fn from_toml_file<P: FilePath>(p: P)  -> Result<Self, Box<dyn std::error::Error>> {
+        let name_str = p.to_string();
+        let mut recipient: Recipient = crate::helpers::from_toml_file(p)?;
+        recipient.name = crate::helpers::name_from_file::<PathBuf>(name_str.into());
 
         Ok(recipient)
     }
@@ -157,8 +159,8 @@ impl GenerateTexCommands for Recipient {
 
 #[derive(Debug, Deserialize, Clone)]
 pub struct InvoiceConfig {
-    #[serde(deserialize_with = "locale_from_str", default)]
-    locale: Option<Locale>,
+    #[serde(rename = "locale")]
+    locale_str: Option<String>,
     template: Option<String>,
     date_format: Option<String>,
     number_format: Option<String>,
@@ -166,19 +168,6 @@ pub struct InvoiceConfig {
     days_for_payment: Option<u32>,
     calculate_value_added_tax: Option<bool>,
     timesheet_template: Option<String>,
-}
-
-fn locale_from_str<'de, D>(deserializer: D) -> Result<Option<Locale>, D::Error>
-where D: Deserializer<'de> {
-    let buf = String::deserialize(deserializer);
-    if buf.is_err() {
-        return Ok(None);
-    }
-    let buf = buf.unwrap();
-
-    use std::str::FromStr;
-    let s = Locale::from_str(&buf).unwrap_or_default();
-    Ok(Some(s))
 }
 
 macro_rules! default_getter {
@@ -191,7 +180,7 @@ macro_rules! default_getter {
 }
 
 impl InvoiceConfig {
-    default_getter!(locale, Locale);
+    default_getter!(locale_str, String, "en");
     default_getter!(template, String, "invoice.tex");
     default_getter!(date_format, String, "%Y/%m/%d");
     default_getter!(number_format, String, "%Y%m${COUNTER}");
@@ -210,14 +199,16 @@ use std::ops::AddAssign;
 pub struct Timesheet {
     worklog: Worklog,
     template_file: String,
+    template_dir: String,
     locale: Locale,
 }
 
 impl Timesheet {
-    pub fn new(template_file: String, locale: Locale) -> Self {
+    pub fn new<P: FilePath>(template_file: P, locale: Locale) -> Self {
         Self {
             worklog: Worklog::new(),
-            template_file: format!("templates/{template_file}"),
+            template_file: template_file.file_name(),
+            template_dir: template_file.parent(),
             locale: locale.clone(),
         }
     }
@@ -242,6 +233,10 @@ impl GenerateTex for Timesheet {
                 Ok(())
             })
             .generate(w)
+    }
+
+    fn template_dir(&self) -> PathBuf {
+        self.template_dir.clone().into()
     }
 }
 
@@ -271,13 +266,15 @@ impl<'a> Invoice<'a> {
     }
 
     pub fn locale(&self) -> Locale {
-        match &self.recipient.invoice.locale {
+        let locale_str = match &self.recipient.invoice.locale_str {
             Some(locale) => locale.clone(),
-            None => match &self.config.locale {
+            None => match &self.config.locale_str {
                 Some(locale) => locale.clone(),
-                None => Locale::default()
+                None => String::from("en")
             }
-        }
+        };
+
+        Locale::from_toml_file(self.invoicer.locale_dir().join(format!("{}.toml", locale_str))).unwrap()
     }
 
     pub fn date(&self) -> DateTime {
@@ -337,7 +334,7 @@ impl<'a> Invoice<'a> {
             
             if self.generate_timesheet() {
                 if self.timesheet.is_none() {
-                    self.timesheet = Some(Timesheet::new(self.config.timesheet_template(), self.locale()));
+                    self.timesheet = Some(Timesheet::new(Path::new(&self.template_dir()).join(self.config.timesheet_template()), self.locale()));
                 }
                 self.timesheet.as_mut().unwrap().add_record(record.clone());
             }
@@ -548,6 +545,10 @@ impl<'a> GenerateTex for Invoice<'a> {
                 Ok(())
             })
             .generate(w)
+    }
+
+    fn template_dir(&self) -> PathBuf {
+        self.invoicer.template_dir()
     }
 }
 

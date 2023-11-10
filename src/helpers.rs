@@ -1,21 +1,49 @@
-use std::{io::Read, fs::File};
+use std::{io::Read, fs::File, path::{Path, PathBuf, self}};
 
-pub fn from_toml_file<T: serde::de::DeserializeOwned>(filename: &str)  -> Result<T, Box<dyn std::error::Error>> {
-    let mut file = std::fs::File::open(&filename)?;
+pub trait FilePath: AsRef<std::path::Path> + AsRef<std::ffi::OsStr> {
+
+    fn to_string(&self) -> String {
+        Path::new(&self).as_os_str().to_str().unwrap().into()
+    }
+
+    fn file_name(&self) -> String {
+        String::from(Path::new(&self).file_name().unwrap().to_str().unwrap())
+    }
+
+    fn parent(&self) -> String {
+        String::from(Path::new(&self).parent().unwrap().to_str().unwrap())
+    }
+
+}
+
+impl FilePath for Path {
+}
+
+impl FilePath for PathBuf {
+}
+
+impl FilePath for &Path {
+
+}
+
+
+pub fn from_toml_file<T: serde::de::DeserializeOwned, P: FilePath>(p: P)  -> Result<T, Box<dyn std::error::Error>> {
+    let path_str = p.to_string();
+    let mut file = std::fs::File::open(p)?;
     let mut s = String::new();
     file.read_to_string(&mut s)?;
     
     match toml::from_str(&s) {
         Ok(result) => Ok(result),
         Err(err) => {
-            eprintln!("Error reading {filename}: {err}");
+            eprintln!("Error reading {}: {err}", path_str);
             Err(Box::new(std::io::Error::new(std::io::ErrorKind::InvalidInput, format!("{err}"))))
         }
     }
 }
 
-pub fn name_from_file(filename: &str) -> String {
-    std::path::Path::new(&filename).file_stem().unwrap().to_str().unwrap().to_string()
+pub fn name_from_file<P: FilePath>(p: P) -> String {
+    std::path::Path::new(&p).file_stem().unwrap().to_str().unwrap().to_string()
 }
 
 pub fn home_dir() -> String {
@@ -23,8 +51,8 @@ pub fn home_dir() -> String {
 }
 
 pub trait FromTomlFile: serde::de::DeserializeOwned {
-    fn from_toml_file(filename: &str)  -> Result<Self, Box<dyn std::error::Error>> {
-        let mut file = std::fs::File::open(&filename)?;
+    fn from_toml_file<P: FilePath>(p: P)  -> Result<Self, Box<dyn std::error::Error>> {
+        let mut file = std::fs::File::open(p)?;
         let mut s = String::new();
         file.read_to_string(&mut s)?;
         
@@ -50,8 +78,7 @@ pub fn any_to_str(any: &dyn std::any::Any) -> Option<String> {
 
 // The output is wrapped in a Result to allow matching on errors
 // Returns an Iterator to the Reader of the lines of the file.
-pub fn read_lines<P>(filename: P) -> std::io::Result<std::io::Lines<std::io::BufReader<File>>>
-where P: AsRef<std::path::Path>, {
+pub fn read_lines<P: AsRef<std::path::Path>>(filename: P) -> std::io::Result<std::io::Lines<std::io::BufReader<File>>> {
     let file = File::open(filename)?;
     use std::io::BufRead;
     Ok(std::io::BufReader::new(file).lines())

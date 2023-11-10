@@ -119,7 +119,7 @@ impl Locale {
 }
 
 
-use crate::{generate_tex::{GenerateTex, generate_tex_command}, helpers::{FromTomlFile, self}};
+use crate::{generate_tex::{GenerateTex, generate_tex_command}, helpers::{FromTomlFile, self, FilePath}};
 
 impl GenerateTex for Locale {
     fn generate_tex<'a>(&self, w: &'a mut dyn std::io::Write) -> std::io::Result<()> {
@@ -131,40 +131,12 @@ impl GenerateTex for Locale {
 }
 
 impl FromTomlFile for Locale {
-    fn from_toml_file(filename: &str)  -> Result<Self, Box<dyn std::error::Error>> {
+    fn from_toml_file<P: FilePath>(filename: P)  -> Result<Self, Box<dyn std::error::Error>> {
+        let name = filename.to_string();
         let mut locale: Locale = helpers::from_toml_file(filename)?;
-        locale.name = helpers::name_from_file(filename);
+        locale.name = helpers::name_from_file::<std::path::PathBuf>(name.into());
         
         Ok(locale)
-    }
-}
-
-impl From<String> for Locale {
-    fn from(value: String) -> Self {
-        From::from(value.as_str())
-    }
-}
-
-impl std::str::FromStr for Locale {
-    type Err = Box<dyn std::error::Error>;
-
-    fn from_str(s: &str) -> Result<Self, Self::Err> {
-        match Self::from_toml_file(format!("locales/{s}.toml").as_str()) {
-            Ok(s) => Ok(s),
-            Err(e) => Err(e)
-        }
-    }
-}
-
-impl From<&str> for Locale {
-    fn from(value: &str) -> Self {
-        Self::from_toml_file(format!("locales/{value}.toml").as_str())
-            .unwrap_or_else(
-                |e| { 
-                    let default = Locale::default();
-                    eprintln!("Could not load toml for locale '{value}', using default locale '{def}'. {e}", def = default.name);  
-                    default
-                })
     }
 }
 
@@ -176,7 +148,7 @@ mod tests {
 
     #[test]
     fn load_toml_and_generate_tex() {
-        let locale = Locale::from_toml_file("locales/en.toml");
+        let locale = Locale::from_toml_file(std::path::Path::new("locales/en.toml"));
         assert!(locale.is_ok());
         
         let locale = locale.unwrap();
@@ -188,7 +160,7 @@ mod tests {
 
     #[test]
     fn format() {
-        let locale = Locale::from("en");
+        let locale = Locale::from_toml_file(std::path::Path::new("locales/en.toml")).unwrap();
 
         assert_eq!(locale.format_amount(1234.943_f32), "1,234.94€");
         assert_eq!(locale.format_amount(1234.00_f32), "1,234.00€");
