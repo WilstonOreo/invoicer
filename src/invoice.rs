@@ -1,11 +1,12 @@
 use chrono::Datelike;
 use serde::{Deserialize, Deserializer};
+use std::hash::Hash;
 use std::io::Write;
 use std::path::{PathBuf, Path};
 use crate::invoicer::{ Invoicer, HasDirectories};
 use crate::locale::{Currency, Locale};
 use crate::generate_tex::*;
-use crate::helpers::{ DateTime, date_to_str, FromTomlFile, FilePath };
+use crate::helpers::{ DateTime, date_to_str, FromTomlFile, FilePath, Fingerprint };
 use crate::worklog::{ Worklog, WorklogRecord };
 
 use std::collections::{HashMap, BTreeMap, HashSet};
@@ -232,6 +233,10 @@ impl GenerateTex for Timesheet {
                 }
                 Ok(())
             })
+            .token("WORKLOG_HASH", |w| {
+               // writeln!(w, "{}", self.worklog.hash())?;
+                Ok(())
+            })
             .generate(w)
     }
 
@@ -411,6 +416,19 @@ impl<'a> Invoice<'a> {
     }
 }
 
+
+impl<'a> Fingerprint for Invoice<'a> {
+    fn fingerprint(&self) -> String {
+        format!("{}\n{}\n{:?}\n{:?}", 
+            self.begin_date(),
+            self.end_date(),
+            self.recipient,
+            self.config.days_for_payment()
+        ).fingerprint()
+    }
+}
+
+
 #[derive(Debug, Iterable)]
 struct InvoiceDetails {
     date: String,
@@ -493,6 +511,17 @@ impl<'a> GenerateTex for Invoice<'a> {
         let mut template = TexTemplate::new(format!("templates/{}", &self.config.template())); 
         
         template
+            .token("INVOICE_SUMMARY", |w| {
+                writeln!(w, "% Invoice from {} for {} with {} positions.", self.date(), &self.recipient.name(), self.positions().len())?;
+                writeln!(w, "% Total: {}, with {}% VAT: {}", 
+                    self.locale().format_amount(self.sum()), 
+                    self.locale().format_amount(self.tax_rate()),
+                    self.locale().format_amount(self.sum_with_tax())
+                )
+            })
+            .token("INVOICE_FINGERPRINT", |w| {
+                writeln!(w, "% {}", self.fingerprint())
+            })
             .token("LANGUAGE", |w| {
                 self.locale().generate_tex(w)
             })

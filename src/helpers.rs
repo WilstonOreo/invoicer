@@ -93,3 +93,26 @@ pub fn date_to_str(d: DateTime, format_str: &String) -> String {
 pub fn now() -> DateTime {
     chrono::offset::Local::now().naive_local()
 }
+
+pub trait Fingerprint {
+    fn fingerprint(&self) -> String;
+}
+
+impl Fingerprint for String {
+    fn fingerprint(&self) -> String {
+        use sha2::Digest;
+        let hash = sha2::Sha256::digest(self);
+        format!("{:X}", hash)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+
+    #[test]
+    fn fingerprint() {
+        use super::Fingerprint;
+        let fp = String::from("Test").fingerprint();
+        assert!(!fp.is_empty());
+    }
+}
