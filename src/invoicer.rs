@@ -1,7 +1,7 @@
-use std::{path::{PathBuf, Path}, fmt::Display};
+use std::{path::{PathBuf, Path}, fmt::Display, collections::HashMap, fs::File, iter::FromFn};
 
 use chrono::Datelike;
-use serde::Deserialize;
+use serde::{Deserialize, Serialize};
 
 use crate::{worklog::Worklog, invoice::*, helpers::*, generate_tex::GenerateTex};
 
@@ -97,6 +97,67 @@ impl Config {
     }
 }
 
+
+
+pub struct InvoiceFingerprints(bimap::BiMap<String, String>);
+
+
+impl InvoiceFingerprints {
+    pub fn add(&mut self, invoice: &Invoice) {
+        self.0.insert(invoice.fingerprint(), invoice.number());
+    }
+
+    pub fn contains_fingerprint(&self, f: String) -> bool {
+        self.0.contains_left(&f)
+    }
+
+    pub fn contains_number(&self, n: String) -> bool {
+        self.0.contains_right(&n)
+    }
+
+    pub fn number_for_fingerprint(&self, f: String) -> String {
+        self.0.get_by_right(&f).unwrap().clone()
+    }
+}
+
+impl Default for InvoiceFingerprints {
+    fn default() -> Self {
+        InvoiceFingerprints(bimap::BiMap::new())
+    }
+}
+
+impl From<HashMap<String, String>> for InvoiceFingerprints {
+    fn from(map: HashMap<String, String>) -> Self {
+        let mut bimap = bimap::BiMap::new();
+        for (k, v) in map {
+            bimap.insert(k, v);
+        }
+        Self(bimap)
+    }
+}
+
+impl FromTomlFile for InvoiceFingerprints {}
+
+impl<'de> Deserialize<'de>  for InvoiceFingerprints {
+    fn deserialize<D: serde::Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> {
+        let s: HashMap<String, String> = Deserialize::deserialize(deserializer)?;
+        Ok(Self::from(s))
+    }
+}
+
+impl Serialize for InvoiceFingerprints {
+    fn serialize<S: serde::Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
+        use serde::ser::SerializeMap;
+        let mut map = serializer.serialize_map(Some(self.0.len()))?;
+        for (k, v) in &self.0 {
+            map.serialize_entry(&k, &v)?;
+        }
+        map.end()
+    }
+}
+
+
+
 pub struct Invoicer {
     config: Config,
     date: DateTime,
@@ -108,12 +169,16 @@ pub struct Invoicer {
 impl Invoicer {
     pub fn new(config: Config, date: Option<DateTime>, counter: Option<u32>) -> Self {
         Self {
-            config: config,
+            config: config.clone(),
             date: date.unwrap_or(now()),
             counter: counter.unwrap_or(1),
             worklog: Worklog::new(),
-            recipients: Vec::new()
+            recipients: Vec::new(),
         }
+    }
+
+    fn fingerprint_file(&self) -> PathBuf {
+        self.config.directories.config_dir().join("fingerprints.toml")
     }
 
     pub fn append_worklog(&mut self, worklog: &Worklog) {
@@ -175,13 +240,15 @@ impl Invoicer {
 
         let mut counter = self.counter;
 
+        let mut fingerprints = InvoiceFingerprints::from_toml_file(self.fingerprint_file()).unwrap_or_default();
+
         // Create an invoice for each recipient
         for recipient in &self.recipients {
             let mut worklog = self.worklog.from_records_with_tag(recipient.name());
             let mut invoice = Invoice::new(&self,  recipient.clone());
             worklog.set_rate(invoice.default_rate());
 
-            invoice.set_counter(counter);
+            counter = invoice.generate_number(counter, Some(&fingerprints));
             
             let tex_file: String = Path::new(&self.invoice_dir()).join(invoice.filename()).into_os_string().into_string().unwrap();
             
@@ -197,7 +264,9 @@ impl Invoicer {
                 continue;
             }
 
+
             invoice.generate_tex_file(tex_file.clone())?;
+            fingerprints.add(&invoice);
 
             let sum_text = if invoice.calculate_value_added_tax() {
                 format!("total (incl. VAT) = {sum}", sum = invoice.locale().format_amount(invoice.sum_with_tax()))
@@ -209,9 +278,13 @@ impl Invoicer {
                 positions = invoice.positions().len(),
                 sum = sum_text
             );
-
-            counter += 1;
         }
+
+        // Save fingerprint file
+        use std::io::Write;
+        let s = toml::to_string(&fingerprints).unwrap();
+        let mut f = std::fs::File::create(self.fingerprint_file())?;
+        write!(f, "{}", s)?;
 
         Ok(())
     }

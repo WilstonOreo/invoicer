@@ -1,3 +1,11 @@
+# Overwrite behaviour. Possible options
+# "force" => Overwrite without asking
+# "rename_old" => Renames old file
+# "rename_new" => Renames new files
+# "skip" => Skip generation for file if exists
+overwrite = "rename_old"
+pdf_generator = "pdflatex"
+
 [directories]
 config = "${WORKING_DIR}"
 tags = "${CONFIG_DIR}/tags"

@@ -3,7 +3,7 @@ use serde::{Deserialize, Deserializer};
 use std::hash::Hash;
 use std::io::Write;
 use std::path::{PathBuf, Path};
-use crate::invoicer::{ Invoicer, HasDirectories};
+use crate::invoicer::{ Invoicer, HasDirectories, InvoiceFingerprints};
 use crate::locale::{Currency, Locale};
 use crate::generate_tex::*;
 use crate::helpers::{ DateTime, date_to_str, FromTomlFile, FilePath, Fingerprint };
@@ -247,8 +247,8 @@ impl GenerateTex for Timesheet {
 
 pub struct Invoice<'a> {
     invoicer: &'a Invoicer,
-    config: InvoiceConfig,
-    counter: u32,
+    config: &'a InvoiceConfig,
+    number: String,
     recipient: Recipient,
     positions: Vec<InvoicePosition>,
     timesheet: Option<Timesheet>,
@@ -260,8 +260,8 @@ impl<'a> Invoice<'a> {
     pub fn new(invoicer: &'a Invoicer, recipient: Recipient) -> Self {
         Invoice {
             invoicer: invoicer,
-            counter: 0,
-            config: invoicer.config().invoice().clone(),
+            config: invoicer.config().invoice(),
+            number: String::new(),
             recipient: recipient,
             positions: Vec::new(),
             timesheet: None,
@@ -290,8 +290,28 @@ impl<'a> Invoice<'a> {
         self.positions.push(position);
     }
 
-    pub fn set_counter(&mut self, counter: u32) {
-        self.counter = counter;
+    pub fn generate_number(&mut self, counter: u32, fingerprints: Option<&InvoiceFingerprints>) -> u32 {
+        
+        let date = self.invoicer.date();
+        let mut counter = counter;
+
+        match fingerprints {
+            Some(fingerprints) => {
+                // We have a fingerprint
+                if fingerprints.contains_fingerprint(self.fingerprint()) {
+                    self.number = fingerprints.number_for_fingerprint(self.fingerprint());
+                    return counter;
+                }
+            }
+            None => {}
+        }
+
+        self.number = self.config.number_format()
+            .replace("%Y", format!("{:04}", date.year()).as_str())
+            .replace("%m", format!("{:02}", date.month()).as_str())
+            .replace("${COUNTER}", format!("{:02}", counter).as_str());
+
+        counter + 1
     }
 
     pub fn positions(&self) -> &Vec<InvoicePosition> {
@@ -356,11 +376,14 @@ impl<'a> Invoice<'a> {
     }
 
     pub fn number(&self) -> String {
-        let date = self.invoicer.date();
+        self.number.clone()
+    }
+
+    pub fn number_with_counter(&self, counter: u32) -> String {
         self.config.number_format()
-            .replace("%Y", format!("{:04}", date.year()).as_str())
-            .replace("%m", format!("{:02}", date.month()).as_str())
-            .replace("${COUNTER}", format!("{:02}", self.counter).as_str())
+            .replace("%Y", format!("{:04}", self.date().year()).as_str())
+            .replace("%m", format!("{:02}", self.date().month()).as_str())
+            .replace("${COUNTER}", format!("{:02}", counter).as_str())
     }
 
 
