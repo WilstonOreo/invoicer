@@ -24,7 +24,7 @@ An invoice is created for each recipient.
 
 ### Recipient
 
-The recipient information can be retrieved from a TOML file, which looks like this:
+Data for Recipient is located in the `tag` directory and data for each recipient is stored in a TOML file:
 
 ```toml
 companyname = "Example Client"
@@ -40,7 +40,8 @@ country = "Germany"
 phone = "+49123456789"
 ```
 
-The name of the TOML file is the recipients name (`ExampleRecipient.toml` will be `ExampleRecipient`).
+The name of the TOML file is also the recipients tag name (`ExampleRecipient.toml` will be `ExampleRecipient`).
+Examples for recipient TOML file can be found in `examples` directory.
 
 ### Worklog without tags
 
