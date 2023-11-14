@@ -70,9 +70,26 @@ impl HasDirectories for Directories {
 }
 
 
+#[derive(Debug, Deserialize, Clone)]
+enum OverwriteBehaviour {
+    Force,
+    RenameOld,
+    RenameNew,
+    Skip,
+}
+
+impl Default for OverwriteBehaviour {
+    fn default() -> Self {
+        OverwriteBehaviour::RenameOld
+    }
+}
+
 
 #[derive(Debug, Deserialize, Clone)]
 pub struct Config {
+    pdf_generator: Option<String>,
+    #[serde(default)]
+    overwrite: OverwriteBehaviour,
     #[serde(default)]
     directories: Directories,
     contact: Contact,
@@ -293,20 +310,18 @@ impl Invoicer {
 
             counter = invoice.generate_number(counter, Some(&fingerprints));
             
-            let tex_file: String = Path::new(&self.invoice_dir()).join(invoice.filename()).into_os_string().into_string().unwrap();
-            
-            /*match invoice.output_file() {
-                Some(ref output) => if self.recipients.len() > 1 { format!("{output}{counter}.tex") } else { format!("{output}.tex") },
-                None => invoice.filename()
-            };*/ // TODO: Output from command line
-        
+            let tex_file = Path::new(&self.invoice_dir()).join(invoice.filename());
             invoice.add_worklog(&worklog);
 
             if invoice.positions().is_empty() {
-                eprintln!("{tex_file}: Warning: The generated invoice contains no positions, no invoice will be generated!");
+                eprintln!("{:?}: Warning: The generated invoice contains no positions, no invoice will be generated!", tex_file);
                 continue;
             }
 
+            if tex_file.exists() {
+                eprintln!("{:?}: Warning: The tex file to be generated already exists.", tex_file);
+                continue;
+            }
 
             invoice.generate_tex_file(tex_file.clone())?;
             fingerprints.add(&invoice);
@@ -317,7 +332,8 @@ impl Invoicer {
                 format!("total = {sum}", sum = invoice.locale().format_amount(invoice.sum()))
             };
 
-            println!("{tex_file}: {positions} positions, {sum}", 
+            println!("{:?}: {positions} positions, {sum}", 
+                tex_file,
                 positions = invoice.positions().len(),
                 sum = sum_text
             );

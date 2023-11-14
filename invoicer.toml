@@ -3,7 +3,7 @@
 # "rename_old" => Renames old file
 # "rename_new" => Renames new files
 # "skip" => Skip generation for file if exists
-overwrite = "rename_old"
+overwrite = "RenameOld"
 pdf_generator = "pdflatex"
 
 [directories]
