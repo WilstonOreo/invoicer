@@ -5,7 +5,7 @@
 ## TL;DR
 
 ```shell
-invoicer -r Recipient.toml -w worklog.csv -o output.tex
+invoicer -r Recipient.toml -w worklog.csv -o output_folder
 ```
 
 Using [jobber](https://github.com/fightling/jobber):

@@ -19,7 +19,7 @@ struct Arguments{
 
     /// Optional latex output file
     #[arg(short = 'o', long)]
-    invoice_output: Option<String>,
+    output_dir: Option<String>,
 
     /// Optional config file. 
     #[arg(short, long, default_value = "invoicer.toml")]
@@ -42,7 +42,11 @@ struct Arguments{
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     let args = Arguments::parse();
-    let config = Config::from_toml_file::<PathBuf>(args.config.into())?;
+    let mut config = Config::from_toml_file::<PathBuf>(args.config.into())?;
+    
+    if let Some(output_dir) = args.output_dir {
+        config.set_invoice_dir(PathBuf::from(output_dir));
+    }
 
     let date = match args.date {
         Some(date_str) => {

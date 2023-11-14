@@ -95,6 +95,10 @@ impl Config {
     pub fn invoice(&self) -> &InvoiceConfig {
         &self.invoice
     }
+
+    pub fn set_invoice_dir(&mut self, p: impl FilePath) {
+        self.directories.invoices = Some(p.to_string());
+    }
 }
 
 
@@ -332,8 +336,8 @@ impl Display for Invoicer {
         writeln!(f, "\t\tTags:\t{:?}", self.tag_dir())?;
         writeln!(f, "\t\tLocales:\t{:?}", self.locale_dir())?;
 
-        println!("Worklog tags: {:?}", self.worklog.tags());
-        println!("Recipients: {:?}", self.recipients.iter().map(|r| r.name().clone()).collect::<Vec<String>>());
+        println!("worklog_tags: {:?}", self.worklog.tags());
+        println!("recipients: {:?}", self.recipients.iter().map(|r| r.name().clone()).collect::<Vec<String>>());
 
         Ok(())
     }
