@@ -231,9 +231,9 @@ impl Timesheet {
 
 impl GenerateTex for Timesheet {
     fn generate_tex<'a>(&self, w: &'a mut dyn Write) -> std::io::Result<()> {
-        let mut template = TexTemplate::new(self.template_file.clone());
+        let mut template = TexTemplate::new(self.template_dir().join(self.template_file.clone()));
         template
-            .token("TIMESHEET", |w| {
+            .token("WORKLOG", |w| {
                 for record in self.worklog.records() {
                     writeln!(w, "{} & {} & {}\\\\", record.start, self.locale.format_number(record.hours, 2), record.message)?;
                 }
@@ -534,7 +534,7 @@ impl InvoicePosition {
 
 impl<'a> GenerateTex for Invoice<'a> {
     fn generate_tex(&self, w: &mut dyn Write) -> std::io::Result<()> {
-        let mut template = TexTemplate::new(format!("templates/{}", &self.config.template())); 
+        let mut template = TexTemplate::new(self.invoicer.template_dir().join(self.config.template())); 
         
         template
             .token("INVOICE_SUMMARY", |w| {

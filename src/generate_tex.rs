@@ -2,6 +2,8 @@
 use struct_iterable::Iterable;
 use std::{io::Write, collections::HashMap, path::PathBuf};
 
+use crate::helpers::FilePath;
+
 pub fn generate_tex_command<'a>(mut w: &'a mut dyn Write, commandname: &str, content: &dyn std::any::Any) -> std::io::Result<()> {   
     if let Some(string) = crate::helpers::any_to_str(content) {
         let commandname = commandname.replace("_", "");
@@ -40,7 +42,7 @@ pub trait GenerateTex {
         Ok(())
     }
 
-    fn generate_tex_file<P: AsRef<std::path::Path>>(&self, path: P) -> std::io::Result<()> {
+    fn generate_tex_file(&self, path: &impl FilePath) -> std::io::Result<()> {
         let mut f = std::fs::File::create(path)?;
         self.generate_tex(&mut f)
     }
@@ -49,12 +51,12 @@ pub trait GenerateTex {
 }
 
 pub struct TexTemplate<'a> {
-    filename: String,
+    filename: PathBuf,
     tokens: std::collections::HashMap<String, Box<dyn Fn(&mut dyn Write) -> Result<(), std::io::Error> + 'a>>
 }
 
 impl<'a> TexTemplate<'a> {
-    pub fn new(filename: String) -> Self {
+    pub fn new(filename: PathBuf) -> Self {
         Self {
             filename: filename,
             tokens: HashMap::new()

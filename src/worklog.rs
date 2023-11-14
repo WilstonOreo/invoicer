@@ -164,6 +164,10 @@ impl Worklog {
     pub fn end_date(&self) -> DateTime {
         self.end_date
     }
+
+    pub fn len(&self) -> usize {
+        self.records.len()
+    }
 }
 
 impl Default for Worklog {
