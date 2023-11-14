@@ -1,8 +1,8 @@
 # Overwrite behaviour. Possible options
-# "force" => Overwrite without asking
-# "rename_old" => Renames old file
-# "rename_new" => Renames new files
-# "skip" => Skip generation for file if exists
+# "Force" => Overwrite without asking
+# "RenameOld" => Renames old file with ending _rev${N}
+# "RenameNew" => Renames new files with ending _rev${DATE}
+# "Skip" => Skip generation for file if exists
 overwrite = "RenameOld"
 pdf_generator = "pdflatex"
 
@@ -32,6 +32,7 @@ default_rate = 100.0
 [invoice]
 template = "invoice.tex"
 timesheet_template = "timesheet.tex"
+timesheet = true
 number_format = "%Y%m${COUNTER}"
 date_format = "%Y/%m/%d"
 filename_format = "${INVOICENUMBER}_${INVOICE}_${RECIPIENT}.tex"
