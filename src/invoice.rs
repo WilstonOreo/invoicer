@@ -1,6 +1,5 @@
 use chrono::Datelike;
 use serde::{Deserialize, Deserializer};
-use std::hash::Hash;
 use std::io::Write;
 use std::path::{PathBuf, Path};
 use crate::invoicer::{ Invoicer, HasDirectories, InvoiceFingerprints};
@@ -292,10 +291,8 @@ impl<'a> Invoice<'a> {
         self.positions.push(position);
     }
 
-    pub fn generate_number(&mut self, counter: u32, fingerprints: Option<&InvoiceFingerprints>) -> u32 {
-        
+    pub fn generate_number(&mut self, counter: u32, fingerprints: Option<&InvoiceFingerprints>) -> u32 {        
         let date = self.invoicer.date();
-        let mut counter = counter;
 
         match fingerprints {
             Some(fingerprints) => {
