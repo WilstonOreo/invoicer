@@ -1,7 +1,8 @@
-use std::{path::{PathBuf, Path}, fmt::Display, collections::HashMap, fs::File, iter::FromFn};
+use std::{path::{PathBuf, Path}, fmt::Display, collections::HashMap, fs::File, iter::FromFn, io::Read};
 
 use chrono::Datelike;
 use serde::{Deserialize, Serialize};
+use toml::map::Map;
 
 use crate::{worklog::Worklog, invoice::*, helpers::*, generate_tex::GenerateTex};
 
@@ -79,9 +80,47 @@ pub struct Config {
     invoice: InvoiceConfig,
 }
 
+pub fn toml_file_to_map<P: FilePath>(p: P)  -> Result<Map<String, toml::Value>, Box<dyn std::error::Error>> {
+    let path_str = p.to_string();
+    let mut file = std::fs::File::open(p)?;
+    let mut s = String::new();
+    file.read_to_string(&mut s)?;
+    
+    match toml::from_str(&s) {
+        Ok(result) => Ok(result),
+        Err(err) => {
+            eprintln!("Error reading {}: {err}", path_str);
+            Err(Box::new(std::io::Error::new(std::io::ErrorKind::InvalidInput, format!("{err}"))))
+        }
+    }
+}
+
+
 impl Config {
     pub fn from_toml_file<P: FilePath>(filename: P) -> Result<Self, Box<dyn std::error::Error>> {
         crate::helpers::from_toml_file::<Self, P>(filename)
+    }
+
+    pub fn from_toml_files(filename: Option<impl FilePath>) -> Result<Self, Box<dyn std::error::Error>> {
+        
+        let mut toml = toml::Table::new();
+
+        fn merge_map(p: PathBuf, toml: &mut Map<String, toml::Value>) {
+            if p.exists() {
+                let map = toml_file_to_map(p).unwrap();
+                for (key, value) in map {
+                    toml.insert(key, value);
+                }
+            }
+        }
+
+        merge_map(home::home_dir().unwrap().join("invoicer.toml"), &mut toml);
+        merge_map(std::env::current_dir().unwrap().join("invoicer.toml"), &mut toml);
+        if let Some(filename) = filename {
+            merge_map(PathBuf::from(&filename), &mut toml);
+        }
+
+        Ok(Self::deserialize(toml).unwrap())
     }
 
     pub fn contact(&self) -> &Contact {

@@ -16,11 +16,11 @@ jobber --export | invoicer --stdin
 
 ## Usage
 
+The application can be configured by editing the default config `invoicer.toml` or by providing a custom config as TOML file. The default config file can be located in your home folder our in the working directory.
+
 Invoicer needs at least one *recipient* and one or several *worklogs* as input.
 Worklogs are merged and then assigned to each recipient based on the contained tags.
 An invoice is created for each recipient.
-
-The application can be configured by editing the default config `invoicer.toml` or by providing a custom config as TOML file.
 
 ### Recipient
 
@@ -40,7 +40,7 @@ country = "Germany"
 phone = "+49123456789"
 ```
 
-The name of the TOML file is the recipients name (`ExampleRecipient.toml` will be `ExampleRecipient`). 
+The name of the TOML file is the recipients name (`ExampleRecipient.toml` will be `ExampleRecipient`).
 
 ### Worklog without tags
 

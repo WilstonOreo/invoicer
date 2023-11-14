@@ -42,7 +42,8 @@ struct Arguments{
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     let args = Arguments::parse();
-    let mut config = Config::from_toml_file::<PathBuf>(args.config.into())?;
+
+    let mut config = Config::from_toml_files(Some(PathBuf::from(args.config)))?;
     
     if let Some(output_dir) = args.output_dir {
         config.set_invoice_dir(PathBuf::from(output_dir));
