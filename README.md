@@ -1,6 +1,6 @@
 # Invoicer
 
-**Invoicer** creates invoices based on LateX templates from CSV worklogs.
+**Invoicer** creates PDF invoices based on LateX templates from CSV worklogs.
 
 ## TL;DR
 
@@ -21,6 +21,12 @@ The application can be configured by editing the default config `invoicer.toml` 
 Invoicer needs at least one *recipient* and one or several *worklogs* as input.
 Worklogs are merged and then assigned to each recipient based on the contained tags.
 An invoice is created for each recipient.
+
+### PDF output
+
+The output is a tex file located in `output_dir`, which can be compiled to PDF with [MikTeX](https://miktex.org/) or [TexLive](https://tug.org/texlive/) and the `pdflatex` executable.
+Invoicer can automatically generate PDF files by specifying a PDF generator in `invoicer.toml`,
+e.g. `pdf_generator="pdflatex"`.
 
 ### Recipient
 
@@ -68,10 +74,6 @@ You can also add severals worklogs at once:
 ```shell
 invoicer -r Recipient.toml -w worklog_october.csv -w worklog_december.csv -o output_dir
 ```
-
-The output is a tex file located in `output_dir`, which can be compiled to PDF with MikTeX or TexLive.
-Invoicer can automatically generate PDF files by specifying a PDF generator in `invoicer.toml`,
-e.g. `pdf_generator="pdflatex"`.
 
 While the `-o` argument is purely optional, the output file name will be generated via the format string given in the `invoicer.toml`.
 
