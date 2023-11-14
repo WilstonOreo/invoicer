@@ -65,11 +65,14 @@ An example for worklog may look like this:
 You can also add severals worklogs at once:
 
 ```shell
-invoicer -r Recipient.toml -w worklog_october.csv -w worklog_december.csv -o output.tex
+invoicer -r Recipient.toml -w worklog_october.csv -w worklog_december.csv -o output_dir
 ```
 
-The output is a tex file `output.tex`, which can compiled to PDF with MikTeX or TexLive.
-The `-o` argument is optional, the output name can be generated via the format string given in the `invoicer.toml`.
+The output is a tex file located in `output_dir`, which can be compiled to PDF with MikTeX or TexLive.
+Invoicer can automatically generate PDF files by specifying a PDF generator in `invoicer.toml`,
+e.g. `pdf_generator="pdflatex"`.
+
+While the `-o` argument is purely optional, the output file name will be generated via the format string given in the `invoicer.toml`.
 
 ### Worklog with tags
 
@@ -116,18 +119,6 @@ You can also use `jobber` to pipe its export output into `invoicer`:
 jobber --export | invoicer --stdin
 ```
 
-### Windows
-
-```powershell
-pdflatex.exe .\output.tex
-```
-
-### Linux
-
-```shell
-pdflatex output.tex
-```
-
 ## Locales
 
 An invoice can have different *locales* (aka language), which are stored in the `locales` folder as TOML files.
@@ -142,7 +133,7 @@ You can either edit this template or copy it and enter the new template filename
 
 Some features are currently missing:
 
-* Installing invoicer
+* Installing invoicer and copy template and locales files to right place
 * Finish overwrite behaviour
 
 ## Known issues
