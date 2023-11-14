@@ -168,6 +168,7 @@ pub struct InvoiceConfig {
     filename_format: Option<String>,
     days_for_payment: Option<u32>,
     calculate_value_added_tax: Option<bool>,
+    timesheet: Option<bool>,
     timesheet_template: Option<String>,
 }
 
@@ -188,6 +189,7 @@ impl InvoiceConfig {
     default_getter!(filename_format, String, "${INVOICENUMBER}_${INVOICE}_${RECIPIENT}.tex");
     default_getter!(days_for_payment, u32, 14_u32);
     default_getter!(calculate_value_added_tax, bool, true);
+    default_getter!(timesheet, bool, true);
     default_getter!(timesheet_template, String);
 }
 
@@ -221,20 +223,20 @@ impl Timesheet {
     pub fn sort(&mut self) {
         self.worklog.sort()
     }
+
+    pub fn len(&self) -> usize {
+        self.worklog.len()
+    }
 }
 
 impl GenerateTex for Timesheet {
     fn generate_tex<'a>(&self, w: &'a mut dyn Write) -> std::io::Result<()> {
         let mut template = TexTemplate::new(self.template_file.clone());
         template
-            .token("WORKLOG", |w| {
+            .token("TIMESHEET", |w| {
                 for record in self.worklog.records() {
                     writeln!(w, "{} & {} & {}\\\\", record.start, self.locale.format_number(record.hours, 2), record.message)?;
                 }
-                Ok(())
-            })
-            .token("WORKLOG_HASH", |w| {
-               // writeln!(w, "{}", self.worklog.hash())?;
                 Ok(())
             })
             .generate(w)
@@ -324,7 +326,7 @@ impl<'a> Invoice<'a> {
     }
 
     pub fn generate_timesheet(&self) -> bool {
-        !self.config.timesheet_template().is_empty() || self.timesheet.is_some()
+        (self.config.timesheet() && !self.config.timesheet_template().is_empty()) || self.timesheet.is_some()
     }
 
     pub fn add_worklog(&mut self, worklog: &Worklog) {
@@ -371,6 +373,7 @@ impl<'a> Invoice<'a> {
 
         // Sort timesheet each time a worklog was added
         if self.generate_timesheet() {
+            println!("Generated timesheet with {}", self.timesheet.as_ref().unwrap().len());
             self.timesheet.as_mut().unwrap().sort();
         }
     }
