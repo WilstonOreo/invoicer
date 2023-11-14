@@ -323,7 +323,10 @@ impl Invoicer {
                 continue;
             }
 
-            invoice.generate_tex_file(tex_file.clone())?;
+            invoice.generate_tex_file(&tex_file)?;
+
+            self.generate_pdf(&tex_file)?;
+
             fingerprints.add(&invoice);
 
             let sum_text = if invoice.calculate_value_added_tax() {
@@ -354,6 +357,30 @@ impl Invoicer {
 
     pub fn date(&self) -> DateTime {
         self.date
+    }
+
+    pub fn generate_pdf(&self, tex_file: &impl FilePath) -> Result<(), Box<dyn std::error::Error>> {
+        use std::process::Command;
+        if self.config.pdf_generator.as_ref().is_none() {
+            return Ok(());
+        }
+        let pdf_generator_cmd = self.config.pdf_generator.as_ref().unwrap();
+
+        println!("{:?}: Generating PDF...", tex_file.to_string());
+        match Command::new(pdf_generator_cmd)
+            .args([tex_file.to_string()])
+            .current_dir(self.invoice_dir())
+            .output()
+        {
+            Ok(_) => {
+                eprintln!("{:?}: PDF generated", tex_file.to_string());
+            },
+            Err(e) => {
+                eprintln!("{:?}: Failed to execute PDF generator {:?}: {e}", tex_file.to_string(), pdf_generator_cmd);
+            }
+        }
+
+        Ok(())
     }
 }
 
