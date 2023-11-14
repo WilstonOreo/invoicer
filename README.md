@@ -143,11 +143,7 @@ You can either edit this template or copy it and enter the new template filename
 Some features are currently missing:
 
 * Installing invoicer
-* Define a custom folder for tag TOML files
-* Automatic invoice counting based on hashes
-* Directly generating PDFs using [tectonic](https://github.com/tectonic-typesetting/tectonic)
-* Generating invoices using [typst](https://github.com/typst/typst)
-* ...
+* Finish overwrite behaviour
 
 ## Known issues
 
